@@ -7,143 +7,146 @@ import * as SQLite from 'expo-sqlite';
 export class ExportService {
 
   /**
-   * 1. GÉNÉRATION DE PDF (Approche HTML vers PDF)
-   * Crée un bilan ou un reçu sous forme de PDF, puis propose de le partager.
+   * Génère un bilan PDF du mois en cours et propose le partage.
+   * Appelé par SettingsScreen via ExportService.generatePDFReport()
    */
-  static async generateAndSharePDF(title: string, transactions: any[]): Promise<void> {
-    try {
-      // Construction dynamique du tableau HTML
-      let tableRows = '';
-      let totalIncome = 0;
-      let totalExpense = 0;
+  static async exportPDF(): Promise<void> {
+    // Charger toutes les transactions depuis la DB
+    const transactions = await DatabaseService.getTransactions();
+    const title = `Bilan ${new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`;
 
-      transactions.forEach(t => {
-        if (t.type === 'INCOME') totalIncome += t.amount;
-        if (t.type === 'EXPENSE') totalExpense += t.amount;
-        
-        tableRows += `
-          <tr>
-            <td>${new Date(t.transaction_date).toLocaleDateString()}</td>
-            <td>${t.description || t.category_name}</td>
-            <td style="color: ${t.type === 'INCOME' ? 'green' : 'red'}; font-weight: bold;">
-              ${t.type === 'INCOME' ? '+' : '-'}${t.amount} DH
-            </td>
-          </tr>
-        `;
-      });
+    // Construction dynamique du tableau HTML
+    let tableRows = '';
+    let totalIncome = 0;
+    let totalExpense = 0;
 
-      const net = totalIncome - totalExpense;
+    transactions.forEach((t: any) => {
+      if (t.type === 'INCOME') totalIncome += t.amount;
+      if (t.type === 'EXPENSE') totalExpense += t.amount;
 
-      // Le template HTML brut
-      const htmlContent = `
-        <html>
-          <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
-            <style>
-              body { font-family: 'Helvetica', 'Arial', sans-serif; padding: 20px; color: #333; }
-              h1 { color: #2563eb; text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 10px; }
-              .summary-box { background-color: #f1f5f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-              th, td { border: 1px solid #cbd5e1; padding: 12px; text-align: left; }
-              th { background-color: #f8fafc; color: #475569; }
-              .total { font-size: 18px; font-weight: bold; text-align: right; margin-top: 20px; }
-            </style>
-          </head>
-          <body>
-            <h1>Auto-École - ${title}</h1>
-            
-            <div class="summary-box">
-              <p><strong>Total Encaissé :</strong> <span style="color: green;">${totalIncome} DH</span></p>
-              <p><strong>Total Dépensé :</strong> <span style="color: red;">${totalExpense} DH</span></p>
-              <p style="font-size: 20px;"><strong>Bénéfice Net :</strong> <span style="color: ${net >= 0 ? 'blue' : 'red'};">${net} DH</span></p>
-            </div>
-
-            <table>
-              <tr>
-                <th>Date</th>
-                <th>Description</th>
-                <th>Montant</th>
-              </tr>
-              ${tableRows}
-            </table>
-
-            <div class="total">
-              Document généré le ${new Date().toLocaleDateString()}
-            </div>
-          </body>
-        </html>
+      tableRows += `
+        <tr>
+          <td>${t.date || ''}</td>
+          <td>${t.description || t.category_name || '-'}</td>
+          <td style="color: ${t.type === 'INCOME' ? '#16a34a' : '#ef4444'}; font-weight: bold;">
+            ${t.type === 'INCOME' ? '+' : '-'}${t.amount} DH
+          </td>
+        </tr>
       `;
+    });
 
-      // Conversion HTML -> PDF
-      const { uri } = await Print.printToFileAsync({ html: htmlContent });
+    const net = totalIncome - totalExpense;
 
-      // Partage Natif (WhatsApp, Email, Drive...)
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
-      }
-    } catch (error) {
-      console.error("Erreur lors de la génération du PDF", error);
+    const htmlContent = `
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <style>
+            body { font-family: 'Helvetica', 'Arial', sans-serif; padding: 24px; color: #333; }
+            h1 { color: #2563eb; text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 12px; font-size: 22px; }
+            .summary-box { background-color: #f1f5f9; padding: 16px; border-radius: 8px; margin-bottom: 20px; }
+            .summary-box p { margin: 6px 0; font-size: 14px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+            th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; font-size: 13px; }
+            th { background-color: #f8fafc; color: #475569; font-weight: 600; }
+            .footer { font-size: 12px; text-align: right; margin-top: 20px; color: #94a3b8; }
+          </style>
+        </head>
+        <body>
+          <h1>🏫 Auto-École - ${title}</h1>
+
+          <div class="summary-box">
+            <p><strong>Total Encaissé :</strong> <span style="color: #16a34a;">${totalIncome.toLocaleString()} DH</span></p>
+            <p><strong>Total Dépensé :</strong> <span style="color: #ef4444;">${totalExpense.toLocaleString()} DH</span></p>
+            <p style="font-size: 18px;"><strong>Bénéfice Net :</strong> <span style="color: ${net >= 0 ? '#2563eb' : '#ef4444'};">${net.toLocaleString()} DH</span></p>
+          </div>
+
+          ${transactions.length > 0 ? `
+          <table>
+            <tr>
+              <th>Date</th>
+              <th>Description</th>
+              <th>Montant</th>
+            </tr>
+            ${tableRows}
+          </table>
+          ` : '<p style="text-align:center; color: #94a3b8;">Aucune transaction enregistrée.</p>'}
+
+          <div class="footer">
+            Document généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}
+          </div>
+        </body>
+      </html>
+    `;
+
+    const { uri } = await Print.printToFileAsync({ html: htmlContent });
+
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
     }
   }
 
   /**
-   * 2. EXPORTATION DU GRAND LIVRE (CSV)
-   * Génère un fichier CSV pour le comptable.
+   * Génère un fichier CSV et propose le partage.
+   * Appelé par SettingsScreen via ExportService.generateCSVExport()
    */
-  static async exportToCSV(): Promise<void> {
-    try {
-      const db = await SQLite.openDatabaseAsync('autoecole_finance.db');
-      const transactions = await db.getAllAsync(`
-        SELECT t.id, t.transaction_date, t.amount, t.type, c.name as category, t.description 
-        FROM Transactions t
-        JOIN Categories c ON t.category_id = c.id
-        ORDER BY t.transaction_date DESC
-      `);
+  static async exportCSV(): Promise<void> {
+    const transactions = await DatabaseService.getTransactions();
 
-      let csvString = "ID,Date,Montant(DH),Type,Categorie,Description\n";
-      transactions.forEach((t: any) => {
-        csvString += `${t.id},"${t.transaction_date}",${t.amount},${t.type},"${t.category}","${t.description || ''}"\n`;
-      });
+    // BOM UTF-8 pour que Excel affiche correctement les accents
+    let csvString = "\uFEFFID,Date,Montant(DH),Type,Catégorie,Description\n";
+    transactions.forEach((t: any) => {
+      const desc = (t.description || '').replace(/"/g, '""');
+      const cat = (t.category_name || '').replace(/"/g, '""');
+      csvString += `${t.id},"${t.date || ''}",${t.amount},${t.type === 'INCOME' ? 'Entrée' : 'Sortie'},"${cat}","${desc}"\n`;
+    });
 
-      const fileUri = FileSystem.documentDirectory + 'Export_Comptable_AutoEcole.csv';
-      await FileSystem.writeAsStringAsync(fileUri, csvString, { encoding: FileSystem.EncodingType.UTF8 });
+    const fileName = `Export_AutoEcole_${new Date().toISOString().split('T')[0]}.csv`;
+    const fileUri = FileSystem.documentDirectory + fileName;
+    await FileSystem.writeAsStringAsync(fileUri, csvString, { encoding: FileSystem.EncodingType.UTF8 });
 
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri, { mimeType: 'text/csv' });
-      }
-    } catch (error) {
-      console.error("Erreur lors de l'export CSV", error);
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(fileUri, { mimeType: 'text/csv' });
     }
   }
 
   /**
-   * 3. SAUVEGARDE DE LA BASE DE DONNÉES (Anti-Perte)
-   * Permet d'exporter le fichier .db physique pour le stocker sur Drive ou iCloud.
+   * Sauvegarde de la base de données (export du fichier .db).
+   * Appelé par SettingsScreen via ExportService.backupDatabase()
    */
   static async backupDatabase(): Promise<void> {
-    try {
-      // Le chemin où expo-sqlite stocke la base de données
-      const dbDir = FileSystem.documentDirectory + 'SQLite/';
-      const dbFileUri = dbDir + 'autoecole_finance.db';
+    // expo-sqlite v16 stocke la DB dans documentDirectory/SQLite/
+    const dbDir = FileSystem.documentDirectory + 'SQLite/';
+    const dbFileUri = dbDir + 'autoecole_finance.db';
 
-      const fileInfo = await FileSystem.getInfoAsync(dbFileUri);
-      if (!fileInfo.exists) {
+    const fileInfo = await FileSystem.getInfoAsync(dbFileUri);
+    if (!fileInfo.exists) {
+      // Fallback: essayer directement dans documentDirectory
+      const altUri = FileSystem.documentDirectory + 'autoecole_finance.db';
+      const altInfo = await FileSystem.getInfoAsync(altUri);
+      if (!altInfo.exists) {
         throw new Error("Base de données introuvable.");
       }
-
-      // Copie vers un nom plus explicite avant l'export
+      // Utiliser le chemin alternatif
       const backupUri = FileSystem.documentDirectory + `Backup_AutoEcole_${new Date().toISOString().split('T')[0]}.db`;
-      await FileSystem.copyAsync({ from: dbFileUri, to: backupUri });
-
-      // Partage
+      await FileSystem.copyAsync({ from: altUri, to: backupUri });
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(backupUri, { 
-          dialogTitle: 'Sauvegarder la base de données (Google Drive / iCloud / WhatsApp)',
-          mimeType: 'application/x-sqlite3' 
+        await Sharing.shareAsync(backupUri, {
+          dialogTitle: 'Sauvegarder la base de données',
+          mimeType: 'application/x-sqlite3'
         });
       }
-    } catch (error) {
-      console.error("Erreur lors de la sauvegarde de la base de données", error);
+      return;
+    }
+
+    const backupUri = FileSystem.documentDirectory + `Backup_AutoEcole_${new Date().toISOString().split('T')[0]}.db`;
+    await FileSystem.copyAsync({ from: dbFileUri, to: backupUri });
+
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(backupUri, {
+        dialogTitle: 'Sauvegarder la base de données',
+        mimeType: 'application/x-sqlite3'
+      });
     }
   }
 }

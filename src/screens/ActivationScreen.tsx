@@ -1,21 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Clipboard } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { SecurityService } from '../services/SecurityService';
+import { useLanguage } from '../services/i18n';
+import { showToast } from '../services/ToastService';
 
 export const ActivationScreen = ({ onActivated }: { onActivated: () => void }) => {
+  const { t } = useLanguage();
   const [deviceId, setDeviceId] = useState<string>('');
   const [inputKey, setInputKey] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [verifying, setVerifying] = useState<boolean>(false);
 
   useEffect(() => {
-    // Récupérer l'identifiant unique au montage
     const loadDeviceId = async () => {
       try {
         const id = await SecurityService.getDeviceId();
         setDeviceId(id);
-      } catch (error) {
-        Alert.alert("Erreur", "Impossible de récupérer l'identifiant matériel.");
+      } catch {
+        showToast(t('activation_device_error'), 'error');
       } finally {
         setLoading(false);
       }
@@ -25,29 +28,26 @@ export const ActivationScreen = ({ onActivated }: { onActivated: () => void }) =
 
   const handleVerify = async () => {
     if (!inputKey.trim()) {
-      Alert.alert("Erreur", "Veuillez entrer une clé d'activation.");
+      showToast(t('activation_key_empty'), 'error');
       return;
     }
 
     setVerifying(true);
-    // Format the key to match visual presentation before passing
     const cleanKey = inputKey.replace(/-/g, '').trim().toUpperCase();
-    
-    // Le hash généré est sans tirets
     const isValid = await SecurityService.verifyActivationKey(cleanKey);
     setVerifying(false);
 
     if (isValid) {
-      Alert.alert("Succès", "Application activée avec succès !");
+      showToast(t('activation_success'), 'success');
       onActivated();
     } else {
-      Alert.alert("Clé Invalide", "La clé saisie ne correspond pas à cet appareil.");
+      showToast(t('activation_invalid_key'), 'error');
     }
   };
 
-  const copyToClipboard = () => {
-    Clipboard.setString(deviceId);
-    Alert.alert("Copié !", "Code appareil copié dans le presse-papiers.");
+  const copyToClipboard = async () => {
+    await Clipboard.setStringAsync(deviceId);
+    showToast(t('activation_copied'), 'success');
   };
 
   if (loading) {
@@ -60,20 +60,18 @@ export const ActivationScreen = ({ onActivated }: { onActivated: () => void }) =
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>🔒 Activation Requise</Text>
-      <Text style={styles.subtitle}>
-        Cette application est protégée. Veuillez transmettre le Code Appareil ci-dessous à l'administrateur pour obtenir votre clé d'activation.
-      </Text>
+      <Text style={styles.title}>🔒 {t('activation_title')}</Text>
+      <Text style={styles.subtitle}>{t('activation_subtitle')}</Text>
 
       <View style={styles.deviceCodeContainer}>
-        <Text style={styles.deviceCodeLabel}>CODE APPAREIL :</Text>
+        <Text style={styles.deviceCodeLabel}>{t('activation_device_label')}</Text>
         <Text style={styles.deviceCode}>{deviceId}</Text>
         <TouchableOpacity style={styles.copyButton} onPress={copyToClipboard}>
-          <Text style={styles.copyButtonText}>Copier le code</Text>
+          <Text style={styles.copyButtonText}>{t('activation_copy')}</Text>
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.inputLabel}>Saisissez votre Clé d'Activation :</Text>
+      <Text style={styles.inputLabel}>{t('activation_key_label')}</Text>
       <TextInput
         style={styles.input}
         placeholder="Ex: ABCD-EFGH-IJKL-MNOP"
@@ -83,15 +81,15 @@ export const ActivationScreen = ({ onActivated }: { onActivated: () => void }) =
         autoCorrect={false}
       />
 
-      <TouchableOpacity 
-        style={[styles.button, verifying && styles.buttonDisabled]} 
+      <TouchableOpacity
+        style={[styles.button, verifying && styles.buttonDisabled]}
         onPress={handleVerify}
         disabled={verifying}
       >
         {verifying ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.buttonText}>Déverrouiller l'Application</Text>
+          <Text style={styles.buttonText}>{t('activation_unlock')}</Text>
         )}
       </TouchableOpacity>
     </View>

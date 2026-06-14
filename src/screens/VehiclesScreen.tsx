@@ -1,119 +1,346 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, ActivityIndicator, RefreshControl } from 'react-native';
 import { DatabaseService } from '../services/DatabaseService';
+import { useLanguage } from '../services/i18n';
+import { showToast } from '../services/ToastService';
 
-export const VehiclesScreen = ({ navigation }: any) => {
+export default function VehiclesScreen() {
+  const { t, isRTL } = useLanguage();
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [name, setName] = useState('');
+  const [registration, setRegistration] = useState('');
+  const [mileage, setMileage] = useState('');
+  const [nextVisit, setNextVisit] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  const loadVehicles = async () => {
+  const loadVehicles = useCallback(async () => {
     try {
       const data = await DatabaseService.getVehicles();
       setVehicles(data);
-    } catch (error) {
-      Alert.alert("Erreur", "Impossible de charger les véhicules.");
+    } catch {
+      // silent
     } finally {
       setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadVehicles();
+  }, [loadVehicles]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadVehicles();
+  }, [loadVehicles]);
+
+  const handleSave = async () => {
+    if (!name.trim() || !registration.trim()) {
+      showToast(t('fill_required'));
+      return;
+    }
+    setSaving(true);
+    try {
+      await DatabaseService.addVehicle(name.trim(), registration.trim(), parseInt(mileage) || 0, nextVisit.trim());
+      showToast(t('vehicle_added'));
+      setName('');
+      setRegistration('');
+      setMileage('');
+      setNextVisit('');
+      setModalVisible(false);
+      loadVehicles();
+    } catch {
+      showToast(t('error'));
+    } finally {
+      setSaving(false);
     }
   };
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      loadVehicles();
-    });
-    return unsubscribe;
-  }, [navigation]);
+  const isVisitUrgent = (dateStr: string | null) => {
+    if (!dateStr) return false;
+    const visit = new Date(dateStr);
+    const now = new Date();
+    const diffDays = (visit.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+    return diffDays <= 7;
+  };
 
   const renderVehicle = ({ item }: { item: any }) => {
-    const remainingKm = item.next_oil_change_km - item.current_mileage;
-    const isOilAlert = remainingKm <= 1000;
-    
-    // Simplification pour l'alerte date : on vérifie si on est à moins de 30 jours
-    const today = new Date().toISOString().split('T')[0];
-    const isTechnicalVisitAlert = item.technical_visit_date <= today; // À améliorer avec calcul de dates
+    const oilRemaining = (item.next_oil_change_km || 0) - (item.current_mileage || 0);
+    const oilUrgent = oilRemaining <= 1000;
+    const visitUrgent = isVisitUrgent(item.next_technical_visit);
+    const visitDate = item.next_technical_visit
+      ? new Date(item.next_technical_visit).toLocaleDateString()
+      : '—';
 
     return (
-      <TouchableOpacity style={styles.card} onPress={() => {}}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.vehicleName}>{item.brand} - {item.registration_number}</Text>
-        </View>
-        
-        <View style={styles.cardBody}>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Kilométrage Actuel:</Text>
-            <Text style={styles.infoValue}>{item.current_mileage.toLocaleString()} km</Text>
-          </View>
-          
-          <View style={styles.alertBox}>
-            <Text style={styles.alertTitle}>Alertes & Entretien</Text>
-            
-            <View style={styles.alertRow}>
-              <Text style={styles.alertLabel}>Prochaine Vidange:</Text>
-              <Text style={[styles.alertValue, { color: isOilAlert ? '#ef4444' : '#16a34a' }]}>
-                Dans {remainingKm > 0 ? remainingKm.toLocaleString() : 0} km
-              </Text>
-            </View>
+      <View style={styles.card}>
+        <Text style={[styles.cardName, isRTL && styles.textRight]}>
+          🚗 {item.name} - {item.registration}
+        </Text>
 
-            <View style={styles.alertRow}>
-              <Text style={styles.alertLabel}>Visite Technique:</Text>
-              <Text style={[styles.alertValue, { color: isTechnicalVisitAlert ? '#ef4444' : '#16a34a' }]}>
-                {item.technical_visit_date}
-              </Text>
-            </View>
-          </View>
-
+        <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 8 }]}>
+          <Text style={styles.cardDetail}>
+            🛣️ {t('mileage')}: {(item.current_mileage || 0).toLocaleString()} km
+          </Text>
         </View>
-      </TouchableOpacity>
+
+        <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 6 }]}>
+          <Text style={[styles.cardDetail, oilUrgent && styles.textRed]}>
+            🛢️ {t('oil_change')}: {oilRemaining > 0 ? `${oilRemaining.toLocaleString()} km` : t('overdue')}
+          </Text>
+          {oilUrgent && (
+            <View style={[styles.alertDot, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]} />
+          )}
+        </View>
+
+        <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 6 }]}>
+          <Text style={[styles.cardDetail, visitUrgent && styles.textRed]}>
+            🔧 {t('technical_visit')}: {visitDate}
+          </Text>
+          {visitUrgent && (
+            <View style={[styles.alertDot, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]} />
+          )}
+        </View>
+      </View>
     );
   };
 
   if (loading) {
-    return <View style={styles.center}><ActivityIndicator size="large" color="#2563eb" /></View>;
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#4A90D9" />
+      </View>
+    );
   }
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Véhicules</Text>
-        <TouchableOpacity style={styles.addButton} onPress={() => {
-          Alert.alert("Ajout", "Fonctionnalité d'ajout de véhicule");
-        }}>
-          <Text style={styles.addButtonText}>+ Nouveau</Text>
+      {/* Header */}
+      <View style={[styles.header, isRTL && styles.rowReverse]}>
+        <Text style={styles.headerTitle}>{t('vehicles')}</Text>
+        <TouchableOpacity style={styles.addBtn} onPress={() => setModalVisible(true)}>
+          <Text style={styles.addBtnText}>+ {t('add_new')}</Text>
         </TouchableOpacity>
       </View>
 
+      {/* List */}
       <FlatList
         data={vehicles}
-        keyExtractor={item => item.id.toString()}
+        keyExtractor={(item) => String(item.id)}
         renderItem={renderVehicle}
-        contentContainerStyle={styles.listContainer}
+        contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#4A90D9']} />}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>Aucun véhicule trouvé.</Text>
+          <View style={styles.center}>
+            <Text style={styles.emptyText}>{t('no_data')}</Text>
+          </View>
         }
       />
+
+      {/* Add Vehicle Modal */}
+      <Modal visible={modalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={[styles.modalTitle, isRTL && styles.textRight]}>{t('add_new')}</Text>
+
+            <TextInput
+              style={[styles.input, isRTL && styles.textRight]}
+              placeholder={t('name')}
+              value={name}
+              onChangeText={setName}
+              placeholderTextColor="#999"
+            />
+            <TextInput
+              style={[styles.input, isRTL && styles.textRight]}
+              placeholder={t('registration')}
+              value={registration}
+              onChangeText={setRegistration}
+              placeholderTextColor="#999"
+            />
+            <TextInput
+              style={[styles.input, isRTL && styles.textRight]}
+              placeholder={t('mileage')}
+              value={mileage}
+              onChangeText={setMileage}
+              keyboardType="numeric"
+              placeholderTextColor="#999"
+            />
+            <TextInput
+              style={[styles.input, isRTL && styles.textRight]}
+              placeholder="YYYY-MM-DD"
+              value={nextVisit}
+              onChangeText={setNextVisit}
+              placeholderTextColor="#999"
+            />
+
+            <View style={[styles.modalActions, isRTL && styles.rowReverse]}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.cancelBtn]}
+                onPress={() => {
+                  setModalVisible(false);
+                  setName('');
+                  setRegistration('');
+                  setMileage('');
+                  setNextVisit('');
+                }}
+              >
+                <Text style={styles.cancelBtnText}>{t('cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.saveBtn]} onPress={handleSave} disabled={saving}>
+                {saving ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.saveBtnText}>{t('save')}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 60, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#0f172a' },
-  addButton: { backgroundColor: '#2563eb', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
-  addButtonText: { color: '#ffffff', fontWeight: 'bold' },
-  listContainer: { padding: 16 },
-  card: { backgroundColor: '#ffffff', borderRadius: 12, padding: 16, marginBottom: 16, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2 },
-  cardHeader: { marginBottom: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', paddingBottom: 12 },
-  vehicleName: { fontSize: 18, fontWeight: 'bold', color: '#0f172a' },
-  cardBody: { gap: 12 },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  infoLabel: { fontSize: 14, color: '#64748b', fontWeight: '600' },
-  infoValue: { fontSize: 14, color: '#0f172a', fontWeight: 'bold' },
-  alertBox: { backgroundColor: '#f8fafc', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', marginTop: 8 },
-  alertTitle: { fontSize: 12, textTransform: 'uppercase', color: '#94a3b8', fontWeight: 'bold', marginBottom: 8 },
-  alertRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  alertLabel: { fontSize: 14, color: '#475569' },
-  alertValue: { fontSize: 14, fontWeight: 'bold' },
-  emptyText: { textAlign: 'center', color: '#94a3b8', marginTop: 40, fontSize: 16 }
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1A1A2E',
+  },
+  addBtn: {
+    backgroundColor: '#4A90D9',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  addBtnText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  list: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1A1A2E',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  rowReverse: {
+    flexDirection: 'row-reverse',
+  },
+  textRight: {
+    textAlign: 'right',
+  },
+  cardDetail: {
+    fontSize: 14,
+    color: '#666',
+  },
+  textRed: {
+    color: '#D32F2F',
+    fontWeight: '600',
+  },
+  alertDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#D32F2F',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#999',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1A1A2E',
+    marginBottom: 20,
+  },
+  input: {
+    backgroundColor: '#F5F7FA',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 15,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E8ECF0',
+    color: '#333',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    gap: 12,
+  },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  cancelBtn: {
+    backgroundColor: '#F0F0F0',
+  },
+  cancelBtnText: {
+    color: '#666',
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  saveBtn: {
+    backgroundColor: '#4A90D9',
+  },
+  saveBtnText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 15,
+  },
 });

@@ -1,19 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, TextInput } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput, Vibration, Animated } from 'react-native';
 import { SecurityService } from '../services/SecurityService';
+import { useLanguage } from '../services/i18n';
+import { showToast } from '../services/ToastService';
 
 type PinMode = 'VERIFY' | 'CREATE' | 'RECOVERY';
 
 export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
-  const [mode, setMode] = useState('VERIFY');
+  const { t, isRTL } = useLanguage();
+  const [mode, setMode] = useState<PinMode>('VERIFY');
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
-  const [step, setStep] = useState(1); // Step 1: enter pin, Step 2: confirm pin (for CREATE mode)
+  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  // Pour la restauration
-  const [recoveryKey, setRecoveryKey] = useState<string>('');
-  const [deviceId, setDeviceId] = useState<string>('');
+  const [recoveryKey, setRecoveryKey] = useState('');
+  const [deviceId, setDeviceId] = useState('');
+
+  // Animated scales for 4 dots
+  const dotScales = useRef([
+    new Animated.Value(1),
+    new Animated.Value(1),
+    new Animated.Value(1),
+    new Animated.Value(1),
+  ]).current;
 
   useEffect(() => {
     const checkPinStatus = async () => {
@@ -24,8 +34,8 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
         }
         const id = await SecurityService.getDeviceId();
         setDeviceId(id);
-      } catch (error) {
-        Alert.alert("Erreur", "Problème d'accès au stockage sécurisé.");
+      } catch {
+        showToast(t('pin_storage_error'), 'error');
       } finally {
         setLoading(false);
       }
@@ -33,26 +43,49 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
     checkPinStatus();
   }, []);
 
+  const animateDot = (index: number) => {
+    Animated.sequence([
+      Animated.timing(dotScales[index], {
+        toValue: 1.3,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(dotScales[index], {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const resetDotScales = () => {
+    dotScales.forEach((scale) => scale.setValue(1));
+  };
+
   const handlePinPress = async (num: string) => {
-    if (pin.length < 4 && step === 1) {
+    if (step === 1 && pin.length < 4) {
       const newPin = pin + num;
+      animateDot(newPin.length - 1);
       setPin(newPin);
       if (newPin.length === 4) {
-        processCompletedPin(newPin, 1);
+        setTimeout(() => processCompletedPin(newPin, 1), 200);
       }
-    } else if (confirmPin.length < 4 && step === 2) {
+    } else if (step === 2 && confirmPin.length < 4) {
       const newConfirmPin = confirmPin + num;
+      animateDot(newConfirmPin.length - 1);
       setConfirmPin(newConfirmPin);
       if (newConfirmPin.length === 4) {
-        processCompletedPin(newConfirmPin, 2);
+        setTimeout(() => processCompletedPin(newConfirmPin, 2), 200);
       }
     }
   };
 
   const handleDelete = () => {
     if (step === 1 && pin.length > 0) {
+      resetDotScales();
       setPin(pin.slice(0, -1));
     } else if (step === 2 && confirmPin.length > 0) {
+      resetDotScales();
       setConfirmPin(confirmPin.slice(0, -1));
     }
   };
@@ -63,21 +96,24 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
       if (isValid) {
         onUnlocked();
       } else {
-        Alert.alert("Code Incorrect", "Veuillez réessayer.");
+        Vibration.vibrate(300);
+        showToast(t('pin_wrong'), 'error');
+        resetDotScales();
         setPin('');
       }
     } else if (mode === 'CREATE') {
       if (currentStep === 1) {
-        // Passer à la confirmation
+        resetDotScales();
         setStep(2);
       } else if (currentStep === 2) {
-        // Vérifier si les deux PIN correspondent
         if (pin === completedPin) {
           await SecurityService.saveUserPin(pin);
-          Alert.alert("Succès", "Votre code PIN a été enregistré.");
+          showToast(t('pin_saved'), 'success');
           onUnlocked();
         } else {
-          Alert.alert("Erreur", "Les codes PIN ne correspondent pas. Réessayez.");
+          Vibration.vibrate(300);
+          showToast(t('pin_mismatch'), 'error');
+          resetDotScales();
           setPin('');
           setConfirmPin('');
           setStep(1);
@@ -90,110 +126,293 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
     if (!recoveryKey.trim()) return;
     const cleanKey = recoveryKey.replace(/-/g, '').trim().toUpperCase();
     const isValid = await SecurityService.verifyRecoveryKey(cleanKey);
-    
+
     if (isValid) {
-      Alert.alert("Succès", "Clé de restauration valide. Vous pouvez créer un nouveau code PIN.");
+      showToast(t('recovery_success'), 'success');
       setRecoveryKey('');
       setMode('CREATE');
       setStep(1);
       setPin('');
       setConfirmPin('');
     } else {
-      Alert.alert("Clé Invalide", "La clé de restauration est incorrecte.");
+      showToast(t('recovery_invalid'), 'error');
     }
   };
 
   if (loading) {
-    return <View style={styles.center}><ActivityIndicator size="large" color="#2563eb" /></View>;
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3b82f6" />
+      </View>
+    );
   }
 
   if (mode === 'RECOVERY') {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Oubli du Code PIN</Text>
-        <Text style={styles.subtitle}>
-          Veuillez communiquer ce code à votre administrateur pour recevoir une clé de restauration.
-        </Text>
-        <View style={styles.deviceCodeContainer}>
-          <Text style={styles.deviceCode}>{deviceId}</Text>
+        <View style={styles.bgTop} />
+        <View style={styles.bgBottom} />
+        <View style={styles.content}>
+          <Text style={styles.title}>{t('pin_forgot_title')}</Text>
+          <Text style={styles.subtitle}>{t('pin_forgot_subtitle')}</Text>
+
+          <View style={styles.deviceCodeContainer}>
+            <Text style={styles.deviceCode}>{deviceId}</Text>
+          </View>
+
+          <TextInput
+            style={styles.recoveryInput}
+            placeholder={t('recovery_key_placeholder')}
+            placeholderTextColor="rgba(255,255,255,0.4)"
+            value={recoveryKey}
+            onChangeText={setRecoveryKey}
+            autoCapitalize="characters"
+          />
+
+          <TouchableOpacity style={styles.validateButton} onPress={handleRecovery}>
+            <Text style={styles.validateButtonText}>{t('recovery_validate')}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.cancelLink} onPress={() => setMode('VERIFY')}>
+            <Text style={styles.cancelLinkText}>{t('cancel')}</Text>
+          </TouchableOpacity>
         </View>
-        
-        <TextInput
-          style={styles.input}
-          placeholder="Clé de Restauration"
-          value={recoveryKey}
-          onChangeText={setRecoveryKey}
-          autoCapitalize="characters"
-        />
-        <TouchableOpacity style={styles.button} onPress={handleRecovery}>
-          <Text style={styles.buttonText}>Valider la clé</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.linkButton} onPress={() => setMode('VERIFY')}>
-          <Text style={styles.linkText}>Annuler</Text>
-        </TouchableOpacity>
       </View>
     );
   }
 
-  // Rendu du pavé numérique (Mode CREATE ou VERIFY)
+  // Keypad mode (VERIFY or CREATE)
   const currentPinLength = step === 1 ? pin.length : confirmPin.length;
-  const dots = [0, 1, 2, 3].map(i => (
-    <View key={i} style={[styles.dot, i < currentPinLength && styles.dotFilled]} />
-  ));
 
-  const renderKeypadButton = (num: string) => (
-    <TouchableOpacity key={num} style={styles.keypadButton} onPress={() => handlePinPress(num)}>
-      <Text style={styles.keypadNumber}>{num}</Text>
-    </TouchableOpacity>
-  );
+  const getTitle = () => {
+    if (mode === 'CREATE') {
+      return step === 1 ? t('pin_create') : t('pin_confirm');
+    }
+    return t('pin_enter');
+  };
+
+  const keypadRows: (string | null)[][] = [
+    ['1', '2', '3'],
+    ['4', '5', '6'],
+    ['7', '8', '9'],
+    [null, '0', 'backspace'],
+  ];
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>
-        {mode === 'CREATE' ? (step === 1 ? 'Créez votre Code PIN' : 'Confirmez votre Code PIN') : 'Entrez votre Code PIN'}
-      </Text>
-      
-      <View style={styles.dotsContainer}>{dots}</View>
+      <View style={styles.bgTop} />
+      <View style={styles.bgBottom} />
+      <View style={styles.content}>
+        <Text style={styles.title}>{getTitle()}</Text>
 
-      <View style={styles.keypad}>
-        {['1', '2', '3'].map(renderKeypadButton)}
-        {['4', '5', '6'].map(renderKeypadButton)}
-        {['7', '8', '9'].map(renderKeypadButton)}
-        <View style={styles.keypadButtonEmpty} />
-        {renderKeypadButton('0')}
-        <TouchableOpacity style={styles.keypadButton} onPress={handleDelete}>
-          <Text style={styles.keypadAction}>⌫</Text>
-        </TouchableOpacity>
+        <View style={[styles.dotsContainer, isRTL && styles.rowReverse]}>
+          {[0, 1, 2, 3].map((i) => (
+            <Animated.View
+              key={i}
+              style={[
+                styles.dot,
+                i < currentPinLength && styles.dotFilled,
+                { transform: [{ scale: dotScales[i] }] },
+              ]}
+            />
+          ))}
+        </View>
+
+        <View style={styles.keypad}>
+          {keypadRows.map((row, rowIndex) => (
+            <View key={rowIndex} style={[styles.keypadRow, isRTL && styles.rowReverse]}>
+              {row.map((key, colIndex) => {
+                if (key === null) {
+                  return <View key={`empty-${colIndex}`} style={styles.keyEmpty} />;
+                }
+                if (key === 'backspace') {
+                  return (
+                    <TouchableOpacity
+                      key="backspace"
+                      style={styles.keyButton}
+                      onPress={handleDelete}
+                      activeOpacity={0.6}
+                    >
+                      <Text style={styles.keyBackspace}>⌫</Text>
+                    </TouchableOpacity>
+                  );
+                }
+                return (
+                  <TouchableOpacity
+                    key={key}
+                    style={styles.keyButton}
+                    onPress={() => handlePinPress(key)}
+                    activeOpacity={0.6}
+                  >
+                    <Text style={styles.keyText}>{key}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ))}
+        </View>
+
+        {mode === 'VERIFY' && (
+          <TouchableOpacity style={styles.forgotLink} onPress={() => setMode('RECOVERY')}>
+            <Text style={styles.forgotLinkText}>{t('pin_forgot')}</Text>
+          </TouchableOpacity>
+        )}
       </View>
-
-      {mode === 'VERIFY' && (
-        <TouchableOpacity style={styles.forgotButton} onPress={() => setMode('RECOVERY')}>
-          <Text style={styles.linkText}>Mot de passe oublié ?</Text>
-        </TouchableOpacity>
-      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  container: { flex: 1, backgroundColor: '#f8fafc', padding: 24, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#0f172a', marginBottom: 40 },
-  subtitle: { fontSize: 14, color: '#475569', textAlign: 'center', marginBottom: 20 },
-  dotsContainer: { flexDirection: 'row', gap: 16, marginBottom: 60 },
-  dot: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: '#cbd5e1', backgroundColor: 'transparent' },
-  dotFilled: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
-  keypad: { width: 280, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 24 },
-  keypadButton: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#ffffff', justifyContent: 'center', alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4 },
-  keypadButtonEmpty: { width: 70, height: 70 },
-  keypadNumber: { fontSize: 28, fontWeight: '500', color: '#0f172a' },
-  keypadAction: { fontSize: 24, color: '#475569' },
-  forgotButton: { marginTop: 40 },
-  linkText: { color: '#2563eb', fontSize: 16, fontWeight: '600' },
-  linkButton: { marginTop: 20, padding: 10 },
-  deviceCodeContainer: { padding: 16, backgroundColor: '#fff', borderRadius: 8, marginBottom: 24, borderWidth: 1, borderColor: '#e2e8f0' },
-  deviceCode: { fontSize: 18, fontWeight: 'bold', color: '#ef4444' },
-  input: { width: '100%', backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 16, fontSize: 16, marginBottom: 24, textAlign: 'center' },
-  button: { width: '100%', backgroundColor: '#2563eb', padding: 16, borderRadius: 8, alignItems: 'center' },
-  buttonText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#0f172a',
+  },
+  container: {
+    flex: 1,
+    backgroundColor: '#0f172a',
+  },
+  bgTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '50%',
+    backgroundColor: '#0f172a',
+  },
+  bgBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '50%',
+    backgroundColor: '#1e293b',
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#ffffff',
+    textAlign: 'center',
+    marginBottom: 40,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.7)',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+    paddingHorizontal: 16,
+  },
+  dotsContainer: {
+    flexDirection: 'row',
+    gap: 20,
+    marginBottom: 50,
+  },
+  rowReverse: {
+    flexDirection: 'row-reverse',
+  },
+  dot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.4)',
+    backgroundColor: 'transparent',
+  },
+  dotFilled: {
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
+  },
+  keypad: {
+    width: 280,
+    gap: 16,
+  },
+  keypadRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  keyButton: {
+    width: 75,
+    height: 75,
+    borderRadius: 37.5,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  keyEmpty: {
+    width: 75,
+    height: 75,
+  },
+  keyText: {
+    fontSize: 28,
+    fontWeight: '500',
+    color: '#ffffff',
+  },
+  keyBackspace: {
+    fontSize: 24,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  forgotLink: {
+    marginTop: 40,
+  },
+  forgotLinkText: {
+    color: '#60a5fa',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  deviceCodeContainer: {
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 10,
+    marginBottom: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  deviceCode: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#ef4444',
+    textAlign: 'center',
+  },
+  recoveryInput: {
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 10,
+    padding: 16,
+    fontSize: 16,
+    color: '#ffffff',
+    textAlign: 'center',
+    marginBottom: 24,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  validateButton: {
+    width: '100%',
+    backgroundColor: '#3b82f6',
+    padding: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  validateButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  cancelLink: {
+    marginTop: 24,
+    padding: 10,
+  },
+  cancelLinkText: {
+    color: '#60a5fa',
+    fontSize: 15,
+    fontWeight: '600',
+  },
 });

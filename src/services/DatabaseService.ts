@@ -3,9 +3,6 @@ import * as SQLite from 'expo-sqlite';
 export class DatabaseService {
   private static db: SQLite.SQLiteDatabase | null = null;
 
-  /**
-   * Initialise la connexion à la base de données et crée les tables si elles n'existent pas.
-   */
   static async initDB(): Promise<void> {
     if (!this.db) {
       this.db = await SQLite.openDatabaseAsync('autoecole_finance.db');
@@ -14,9 +11,6 @@ export class DatabaseService {
     await this.seedDefaultCategories();
   }
 
-  /**
-   * Création du schéma relationnel de la base de données
-   */
   private static async createTables(): Promise<void> {
     if (!this.db) return;
 
@@ -79,15 +73,11 @@ export class DatabaseService {
     `);
   }
 
-  /**
-   * Injection des catégories par défaut lors du premier lancement
-   */
   private static async seedDefaultCategories(): Promise<void> {
     if (!this.db) return;
-    
-    // Vérifier s'il y a déjà des catégories
-    const result = await this.db.getFirstAsync<{count: number}>('SELECT COUNT(*) as count FROM Categories');
-    
+
+    const result = await this.db.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM Categories');
+
     if (result && result.count === 0) {
       await this.db.execAsync(`
         INSERT INTO Categories (name, type, is_vehicle_related, icon) VALUES 
@@ -105,77 +95,133 @@ export class DatabaseService {
   }
 
   // =========================================================================
-  // MÉTHODES CRUD (Exemples pour le Dashboard et Saisie)
+  // STUDENTS
   // =========================================================================
 
-  /**
-   * Ajouter une nouvelle dépense (avec logique de mise à jour du kilométrage)
-   */
+  static async getStudents(): Promise<any[]> {
+    if (!this.db) await this.initDB();
+    return await this.db!.getAllAsync(`
+      SELECT s.id, s.name, s.package_price, s.phone, s.created_at,
+        COALESCE((SELECT SUM(t.amount) FROM Transactions t WHERE t.student_id = s.id AND t.type = 'INCOME'), 0) as paid_amount
+      FROM Students s
+      ORDER BY s.created_at DESC
+    `);
+  }
+
+  static async addStudent(name: string, phone: string, packagePrice: number): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.runAsync(
+      'INSERT INTO Students (name, phone, package_price) VALUES (?, ?, ?)',
+      name, phone, packagePrice
+    );
+  }
+
+  static async deleteStudent(id: number): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.runAsync('DELETE FROM Students WHERE id = ?', id);
+  }
+
+  // =========================================================================
+  // VEHICLES
+  // =========================================================================
+
+  static async getVehicles(): Promise<any[]> {
+    if (!this.db) await this.initDB();
+    return await this.db!.getAllAsync(`
+      SELECT v.id, v.name, v.registration, v.current_mileage, v.next_technical_visit,
+        COALESCE(
+          (SELECT o.next_mileage FROM OilChanges o WHERE o.vehicle_id = v.id ORDER BY o.id DESC LIMIT 1),
+          v.current_mileage + 10000
+        ) as next_oil_change_km
+      FROM Vehicles v
+      ORDER BY v.created_at DESC
+    `);
+  }
+
+  static async addVehicle(name: string, registration: string, mileage: number, nextVisit: string): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.runAsync(
+      'INSERT INTO Vehicles (name, registration, current_mileage, next_technical_visit) VALUES (?, ?, ?, ?)',
+      name, registration, mileage, nextVisit
+    );
+  }
+
+  static async deleteVehicle(id: number): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.runAsync('DELETE FROM Vehicles WHERE id = ?', id);
+  }
+
+  // =========================================================================
+  // TRANSACTIONS
+  // =========================================================================
+
+  static async getTransactions(): Promise<any[]> {
+    if (!this.db) await this.initDB();
+    return await this.db!.getAllAsync(`
+      SELECT t.id, t.amount, t.type, t.description, t.transaction_date as date, c.name as category_name
+      FROM Transactions t
+      LEFT JOIN Categories c ON t.category_id = c.id
+      ORDER BY t.transaction_date DESC
+    `);
+  }
+
   static async addExpense(
-    amount: number, 
-    categoryId: number, 
-    vehicleId: number | null, 
-    currentMileage: number | null, 
+    amount: number,
+    categoryId: number,
+    vehicleId: number | null,
+    currentMileage: number | null,
     description: string
   ): Promise<void> {
-    if (!this.db) return;
+    if (!this.db) await this.initDB();
 
-    await this.db.withTransactionAsync(async () => {
-      // 1. Enregistrer la transaction
+    await this.db!.withTransactionAsync(async () => {
       await this.db!.runAsync(
         'INSERT INTO Transactions (amount, type, category_id, vehicle_id, description) VALUES (?, ?, ?, ?, ?)',
         amount, 'EXPENSE', categoryId, vehicleId, description
       );
 
-      // 2. Si un véhicule et un kilométrage sont fournis, on met à jour le véhicule
       if (vehicleId && currentMileage) {
         await this.db!.runAsync(
           'UPDATE Vehicles SET current_mileage = ? WHERE id = ?',
           currentMileage, vehicleId
         );
+
+        // Auto-créer un enregistrement de vidange si la catégorie est "Vidange"
+        const category = await this.db!.getFirstAsync<{name: string}>('SELECT name FROM Categories WHERE id = ?', [categoryId]);
+        if (category && category.name === 'Vidange') {
+          const nextOilChangeMileage = currentMileage + 10000; // Alerte dans 10 000 km
+          await this.db!.runAsync(
+            'INSERT INTO OilChanges (vehicle_id, mileage_at_change, next_mileage) VALUES (?, ?, ?)',
+            vehicleId, currentMileage, nextOilChangeMileage
+          );
+        }
       }
     });
   }
 
-  /**
-   * Récupérer les alertes de vidange imminente (<= 1000 km restants)
-   */
-  static async getOilChangeAlerts(): Promise<any[]> {
-    if (!this.db) return [];
-    // On compare le kilométrage actuel du véhicule avec le next_mileage de sa dernière vidange
-    return await this.db.getAllAsync(`
-      SELECT v.name, v.registration, v.current_mileage, o.next_mileage, (o.next_mileage - v.current_mileage) as remaining_km
-      FROM Vehicles v
-      JOIN OilChanges o ON v.id = o.vehicle_id
-      WHERE (o.next_mileage - v.current_mileage) <= 1000
-      AND o.id = (SELECT MAX(id) FROM OilChanges WHERE vehicle_id = v.id) -- Dernière vidange uniquement
-    `);
+  static async addIncome(
+    amount: number,
+    categoryId: number,
+    studentId: number | null,
+    description: string
+  ): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.runAsync(
+      'INSERT INTO Transactions (amount, type, category_id, student_id, description) VALUES (?, ?, ?, ?, ?)',
+      amount, 'INCOME', categoryId, studentId, description
+    );
   }
 
-  /**
-   * Récupérer les alertes de visite technique (<= 7 jours)
-   */
-  static async getTechnicalVisitAlerts(): Promise<any[]> {
-    if (!this.db) return [];
-    return await this.db.getAllAsync(`
-      SELECT name, registration, next_technical_visit, 
-             julianday(next_technical_visit) - julianday('now') as days_remaining
-      FROM Vehicles
-      WHERE (julianday(next_technical_visit) - julianday('now')) <= 7
-      AND (julianday(next_technical_visit) - julianday('now')) >= 0
-    `);
-  }
+  // =========================================================================
+  // REPORTING & ALERTS
+  // =========================================================================
 
-  /**
-   * Récupère le bilan financier global (Encaissé, Dépensé, Bénéfice) pour un mois donné
-   */
-  static async getFinancialSummary(year: number, month: string): Promise<{income: number, expense: number}> {
-    if (!this.db) return { income: 0, expense: 0 };
-    
-    // Le paramètre month doit être formaté en 'MM', ex: '06'
+  static async getFinancialSummary(year: number, month: string): Promise<{ income: number; expense: number }> {
+    if (!this.db) await this.initDB();
+
     const likePattern = `${year}-${month}-%`;
 
-    const result = await this.db.getFirstAsync<{income: number, expense: number}>(`
+    const result = await this.db!.getFirstAsync<{ income: number; expense: number }>(`
       SELECT 
         COALESCE(SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END), 0) as income,
         COALESCE(SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END), 0) as expense
@@ -184,5 +230,41 @@ export class DatabaseService {
     `, [likePattern]);
 
     return result || { income: 0, expense: 0 };
+  }
+
+  static async getOilChangeAlerts(): Promise<any[]> {
+    if (!this.db) await this.initDB();
+    return await this.db!.getAllAsync(`
+      SELECT v.name, v.registration, v.current_mileage, o.next_mileage, (o.next_mileage - v.current_mileage) as remaining_km
+      FROM Vehicles v
+      JOIN OilChanges o ON v.id = o.vehicle_id
+      WHERE (o.next_mileage - v.current_mileage) <= 1000
+      AND o.id = (SELECT MAX(id) FROM OilChanges WHERE vehicle_id = v.id)
+    `);
+  }
+
+  static async getTechnicalVisitAlerts(): Promise<any[]> {
+    if (!this.db) await this.initDB();
+    return await this.db!.getAllAsync(`
+      SELECT id, name, registration, next_technical_visit, 
+             julianday(next_technical_visit) - julianday('now') as days_remaining
+      FROM Vehicles
+      WHERE (julianday(next_technical_visit) - julianday('now')) <= 30
+      AND (julianday(next_technical_visit) - julianday('now')) >= 0
+    `);
+  }
+
+  static async updateVehicleVisitDate(vehicleId: number, nextVisitDate: string): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.runAsync('UPDATE Vehicles SET next_technical_visit = ? WHERE id = ?', nextVisitDate, vehicleId);
+  }
+
+  // =========================================================================
+  // CATEGORIES
+  // =========================================================================
+
+  static async getCategories(type: 'INCOME' | 'EXPENSE'): Promise<any[]> {
+    if (!this.db) await this.initDB();
+    return await this.db!.getAllAsync('SELECT * FROM Categories WHERE type = ?', [type]);
   }
 }

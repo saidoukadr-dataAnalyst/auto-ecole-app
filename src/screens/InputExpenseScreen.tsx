@@ -1,193 +1,343 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { DatabaseService } from '../services/DatabaseService';
-import * as SQLite from 'expo-sqlite';
+import { useLanguage } from '../services/i18n';
+import { showToast } from '../services/ToastService';
 
-export const InputExpenseScreen = ({ onSaveSuccess, onCancel }: { onSaveSuccess: () => void, onCancel: () => void }) => {
+interface Category {
+  id: number;
+  name: string;
+  is_vehicle_related?: number;
+}
+
+interface Vehicle {
+  id: number;
+  name: string;
+}
+
+interface Props {
+  onSaveSuccess: () => void;
+  onCancel: () => void;
+}
+
+export default function InputExpenseScreen({ onSaveSuccess, onCancel }: Props) {
+  const { t, isRTL } = useLanguage();
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
-  const [categories, setCategories] = useState<any[]>([]);
-  const [vehicles, setVehicles] = useState<any[]>([]);
-  
+  const [mileage, setMileage] = useState('');
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
-  const [selectedCategoryIsVehicleRelated, setSelectedCategoryIsVehicleRelated] = useState<boolean>(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
-  const [currentMileage, setCurrentMileage] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
+  const isVehicleRelated = selectedCategory?.is_vehicle_related === 1;
 
   useEffect(() => {
-    loadDropdownData();
+    const load = async () => {
+      try {
+        const cats = await DatabaseService.getCategories('EXPENSE');
+        setCategories(cats);
+        const vehs = await DatabaseService.getVehicles();
+        setVehicles(vehs);
+      } catch {
+        // silent
+      }
+    };
+    load();
   }, []);
 
-  const loadDropdownData = async () => {
-    try {
-      const db = await SQLite.openDatabaseAsync('autoecole_finance.db');
-      const cats = await db.getAllAsync('SELECT * FROM Categories WHERE type = "EXPENSE"');
-      const vehs = await db.getAllAsync('SELECT * FROM Vehicles');
-      setCategories(cats);
-      setVehicles(vehs);
-    } catch (e) {
-      console.log("Erreur chargement listes: ", e);
-    }
-  };
-
-  const handleCategorySelect = (cat: any) => {
-    setSelectedCategoryId(cat.id);
-    setSelectedCategoryIsVehicleRelated(cat.is_vehicle_related === 1);
-    // Reset vehicle fields if not related
-    if (cat.is_vehicle_related === 0) {
+  useEffect(() => {
+    if (!isVehicleRelated) {
       setSelectedVehicleId(null);
-      setCurrentMileage('');
+      setMileage('');
     }
+  }, [isVehicleRelated]);
+
+  const validate = (): boolean => {
+    const parsed = parseFloat(amount);
+    if (!amount || isNaN(parsed) || parsed <= 0) {
+      showToast(t('amount_required'));
+      return false;
+    }
+    if (!selectedCategoryId) {
+      showToast(t('category_required'));
+      return false;
+    }
+    if (isVehicleRelated) {
+      if (!selectedVehicleId) {
+        showToast(t('vehicle_required'));
+        return false;
+      }
+      const parsedMileage = parseFloat(mileage);
+      if (!mileage || isNaN(parsedMileage) || parsedMileage <= 0) {
+        showToast(t('mileage_required'));
+        return false;
+      }
+    }
+    return true;
   };
 
   const handleSave = async () => {
-    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-      Alert.alert("Erreur", "Veuillez entrer un montant valide.");
-      return;
-    }
-    if (!selectedCategoryId) {
-      Alert.alert("Erreur", "Veuillez sélectionner une catégorie.");
-      return;
-    }
-
-    if (selectedCategoryIsVehicleRelated) {
-      if (!selectedVehicleId) {
-        Alert.alert("Erreur", "Veuillez sélectionner le véhicule concerné.");
-        return;
-      }
-      if (!currentMileage || isNaN(Number(currentMileage))) {
-        Alert.alert("Requis", "Le kilométrage actuel au compteur est OBLIGATOIRE pour anticiper la prochaine vidange.");
-        return;
-      }
-    }
-
+    if (!validate() || saving) return;
+    setSaving(true);
     try {
       await DatabaseService.addExpense(
-        Number(amount),
-        selectedCategoryId,
-        selectedVehicleId,
-        selectedCategoryIsVehicleRelated ? Number(currentMileage) : null,
-        description
+        parseFloat(amount),
+        selectedCategoryId!,
+        isVehicleRelated ? selectedVehicleId : null,
+        isVehicleRelated ? parseFloat(mileage) : null,
+        description.trim()
       );
-      Alert.alert("Succès", "Dépense enregistrée.");
+      showToast(t('expense_saved'));
       onSaveSuccess();
-    } catch (e) {
-      Alert.alert("Erreur", "Impossible d'enregistrer la dépense.");
+    } catch {
+      showToast(t('error'));
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.headerTitle}>Nouvelle Dépense 💸</Text>
-
-      {/* MONTANT */}
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Montant (DH) *</Text>
-        <TextInput 
-          style={styles.inputAmount} 
-          placeholder="0.00" 
-          keyboardType="numeric" 
-          value={amount} 
-          onChangeText={setAmount} 
-        />
-      </View>
-
-      {/* CATÉGORIE */}
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Catégorie *</Text>
-        <View style={styles.chipContainer}>
-          {categories.map(cat => (
-            <TouchableOpacity 
-              key={cat.id} 
-              style={[styles.chip, selectedCategoryId === cat.id && styles.chipActive]}
-              onPress={() => handleCategorySelect(cat)}
-            >
-              <Text style={[styles.chipText, selectedCategoryId === cat.id && styles.chipTextActive]}>
-                {cat.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled">
+      {/* Amount */}
+      <View style={styles.section}>
+        <Text style={[styles.label, isRTL && styles.textRTL]}>{t('amount')}</Text>
+        <View style={[styles.amountRow, isRTL && styles.rowRTL]}>
+          <TextInput
+            style={[styles.amountInput, isRTL && styles.textRTL]}
+            value={amount}
+            onChangeText={setAmount}
+            placeholder="0.00"
+            placeholderTextColor="#fca5a5"
+            keyboardType="numeric"
+          />
+          <Text style={styles.currency}>DH</Text>
         </View>
       </View>
 
-      {/* VÉHICULE & KILOMÉTRAGE (Conditionnel) */}
-      {selectedCategoryIsVehicleRelated && (
-        <View style={styles.vehicleBlock}>
-          <Text style={styles.warningText}>
-            ℹ️ Cette dépense concerne un véhicule. Les données ci-dessous permettront de calculer les alertes de vidange.
-          </Text>
-          
-          <Text style={styles.label}>Véhicule concerné *</Text>
-          <View style={styles.chipContainer}>
-            {vehicles.map(v => (
-              <TouchableOpacity 
-                key={v.id} 
-                style={[styles.chip, selectedVehicleId === v.id && styles.chipActive]}
-                onPress={() => setSelectedVehicleId(v.id)}
+      {/* Categories */}
+      <View style={styles.section}>
+        <Text style={[styles.label, isRTL && styles.textRTL]}>{t('category')}</Text>
+        <View style={[styles.chipContainer, isRTL && styles.chipContainerRTL]}>
+          {categories.map((cat) => {
+            const selected = selectedCategoryId === cat.id;
+            return (
+              <TouchableOpacity
+                key={cat.id}
+                style={[styles.chip, selected && styles.chipSelectedExpense]}
+                onPress={() => setSelectedCategoryId(cat.id)}
+                activeOpacity={0.7}
               >
-                <Text style={[styles.chipText, selectedVehicleId === v.id && styles.chipTextActive]}>
-                  {v.name} ({v.registration})
+                <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                  {cat.name}
                 </Text>
               </TouchableOpacity>
-            ))}
+            );
+          })}
+        </View>
+      </View>
+
+      {/* Vehicle selection */}
+      {isVehicleRelated && (
+        <>
+          <View style={styles.section}>
+            <Text style={[styles.label, isRTL && styles.textRTL]}>{t('vehicle')}</Text>
+            <View style={[styles.chipContainer, isRTL && styles.chipContainerRTL]}>
+              {vehicles.map((v) => {
+                const selected = selectedVehicleId === v.id;
+                return (
+                  <TouchableOpacity
+                    key={v.id}
+                    style={[styles.chip, selected && styles.chipSelectedExpense]}
+                    onPress={() => setSelectedVehicleId(v.id)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                      🚗 {v.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
 
-          <Text style={[styles.label, {marginTop: 16}]}>Kilométrage actuel au compteur *</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="Ex: 145000" 
-            keyboardType="numeric" 
-            value={currentMileage} 
-            onChangeText={setCurrentMileage} 
-          />
-        </View>
+          <View style={styles.section}>
+            <Text style={[styles.label, isRTL && styles.textRTL]}>{t('mileage')}</Text>
+            <TextInput
+              style={[styles.textInput, isRTL && styles.textRTL]}
+              value={mileage}
+              onChangeText={setMileage}
+              placeholder={t('mileage_placeholder') ?? 'km'}
+              placeholderTextColor="#94a3b8"
+              keyboardType="numeric"
+            />
+          </View>
+        </>
       )}
 
-      {/* DESCRIPTION */}
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Description / Note (Optionnel)</Text>
-        <TextInput 
-          style={[styles.input, styles.textArea]} 
-          placeholder="Détails de l'achat..." 
-          multiline 
-          value={description} 
-          onChangeText={setDescription} 
+      {/* Description */}
+      <View style={styles.section}>
+        <Text style={[styles.label, isRTL && styles.textRTL]}>{t('description')}</Text>
+        <TextInput
+          style={[styles.textArea, isRTL && styles.textRTL]}
+          value={description}
+          onChangeText={setDescription}
+          placeholder={t('description_placeholder') ?? ''}
+          placeholderTextColor="#94a3b8"
+          multiline
+          numberOfLines={3}
+          textAlignVertical="top"
         />
       </View>
 
-      {/* BOUTONS */}
-      <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
-          <Text style={styles.cancelButtonText}>Annuler</Text>
+      {/* Buttons */}
+      <View style={[styles.buttonRow, isRTL && styles.rowRTL]}>
+        <TouchableOpacity style={styles.cancelButton} onPress={onCancel} activeOpacity={0.7}>
+          <Text style={styles.cancelButtonText}>{t('cancel')}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Enregistrer</Text>
+        <TouchableOpacity
+          style={[styles.saveButton, styles.saveButtonExpense, saving && styles.disabledButton]}
+          onPress={handleSave}
+          disabled={saving}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.saveButtonText}>{saving ? '...' : t('save')}</Text>
         </TouchableOpacity>
       </View>
-
     </ScrollView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  content: { padding: 24 },
-  headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#0f172a', marginBottom: 24 },
-  inputGroup: { marginBottom: 20 },
-  label: { fontSize: 14, fontWeight: '600', color: '#334155', marginBottom: 8 },
-  inputAmount: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 12, padding: 16, fontSize: 32, fontWeight: 'bold', color: '#ef4444', textAlign: 'center' },
-  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 12, fontSize: 16 },
-  textArea: { height: 80, textAlignVertical: 'top' },
-  chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: '#e2e8f0', borderWidth: 1, borderColor: '#cbd5e1' },
-  chipActive: { backgroundColor: '#2563eb', borderColor: '#1d4ed8' },
-  chipText: { fontSize: 14, color: '#475569', fontWeight: '500' },
-  chipTextActive: { color: '#ffffff', fontWeight: 'bold' },
-  vehicleBlock: { backgroundColor: '#eff6ff', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#bfdbfe', marginBottom: 20 },
-  warningText: { fontSize: 13, color: '#1e40af', marginBottom: 16, fontStyle: 'italic', lineHeight: 18 },
-  buttonRow: { flexDirection: 'row', gap: 12, marginTop: 12 },
-  cancelButton: { flex: 1, padding: 16, borderRadius: 12, backgroundColor: '#e2e8f0', alignItems: 'center' },
-  saveButton: { flex: 2, padding: 16, borderRadius: 12, backgroundColor: '#ef4444', alignItems: 'center' },
-  cancelButtonText: { color: '#475569', fontSize: 16, fontWeight: 'bold' },
-  saveButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  container: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  contentContainer: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  section: {
+    marginBottom: 22,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: 8,
+  },
+  amountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderWidth: 2,
+    borderColor: '#fecaca',
+  },
+  rowRTL: {
+    flexDirection: 'row-reverse',
+  },
+  amountInput: {
+    flex: 1,
+    fontSize: 36,
+    fontWeight: '700',
+    color: '#dc2626',
+  },
+  currency: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#94a3b8',
+    marginLeft: 8,
+  },
+  chipContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chipContainerRTL: {
+    flexDirection: 'row-reverse',
+  },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+  },
+  chipSelectedExpense: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#dc2626',
+  },
+  chipText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#475569',
+  },
+  chipTextSelected: {
+    color: '#dc2626',
+    fontWeight: '600',
+  },
+  textInput: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 15,
+    color: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  textArea: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 15,
+    color: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    minHeight: 90,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 14,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  saveButton: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveButtonExpense: {
+    backgroundColor: '#dc2626',
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  textRTL: {
+    textAlign: 'right',
+  },
 });

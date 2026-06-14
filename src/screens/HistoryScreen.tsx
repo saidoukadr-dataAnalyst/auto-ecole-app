@@ -1,86 +1,259 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import { DatabaseService } from '../services/DatabaseService';
+import { useLanguage } from '../services/i18n';
 
-export const HistoryScreen = ({ navigation }: any) => {
-  const [transactions, setTransactions] = useState<any[]>([]);
+interface Transaction {
+  id: number;
+  amount: number;
+  type: string;
+  description: string;
+  date: string;
+  category_name: string;
+}
+
+export default function HistoryScreen() {
+  const { t, isRTL } = useLanguage();
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const loadTransactions = async () => {
+  const loadTransactions = useCallback(async () => {
     try {
       const data = await DatabaseService.getTransactions();
       setTransactions(data);
-    } catch (error) {
-      console.error(error);
+    } catch {
+      setTransactions([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTransactions();
+  }, [loadTransactions]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadTransactions();
+  }, [loadTransactions]);
+
+  const formatDate = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString(isRTL ? 'ar' : 'fr-FR', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch {
+      return dateStr;
     }
   };
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      loadTransactions();
-    });
-    return unsubscribe;
-  }, [navigation]);
-
-  const renderTransaction = ({ item }: { item: any }) => {
+  const renderTransaction = ({ item }: { item: Transaction }) => {
     const isIncome = item.type === 'INCOME';
-    
+    const icon = isIncome ? '⬆️' : '⬇️';
+    const amountColor = isIncome ? '#16a34a' : '#dc2626';
+    const prefix = isIncome ? '+' : '-';
+
     return (
-      <View style={styles.card}>
-        <View style={styles.cardIcon}>
-          <Text style={styles.iconText}>{isIncome ? '⬆️' : '⬇️'}</Text>
+      <View style={[styles.card, isRTL && styles.cardRTL]}>
+        <View style={[styles.iconContainer, { backgroundColor: isIncome ? '#dcfce7' : '#fee2e2' }]}>
+          <Text style={styles.icon}>{icon}</Text>
         </View>
-        <View style={styles.cardInfo}>
-          <Text style={styles.titleText}>{item.description}</Text>
-          <Text style={styles.dateText}>{item.date}</Text>
-        </View>
-        <View style={styles.amountContainer}>
-          <Text style={[styles.amountText, { color: isIncome ? '#16a34a' : '#ef4444' }]}>
-            {isIncome ? '+' : '-'}{item.amount.toLocaleString()} DA
+
+        <View style={[styles.cardContent, isRTL && styles.cardContentRTL]}>
+          <View style={[styles.cardHeader, isRTL && styles.rowRTL]}>
+            <Text style={[styles.categoryName, isRTL && styles.textRTL]} numberOfLines={1}>
+              {item.category_name}
+            </Text>
+            <Text style={[styles.amount, { color: amountColor }]}>
+              {prefix}{Math.abs(item.amount).toFixed(2)} DH
+            </Text>
+          </View>
+
+          {item.description ? (
+            <Text style={[styles.description, isRTL && styles.textRTL]} numberOfLines={2}>
+              {item.description}
+            </Text>
+          ) : null}
+
+          <Text style={[styles.date, isRTL && styles.textRTL]}>
+            {formatDate(item.date)}
           </Text>
         </View>
       </View>
     );
   };
 
+  const renderEmpty = () => {
+    if (loading) return null;
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyIcon}>📋</Text>
+        <Text style={styles.emptyText}>{t('no_transactions')}</Text>
+      </View>
+    );
+  };
+
   if (loading) {
-    return <View style={styles.center}><ActivityIndicator size="large" color="#2563eb" /></View>;
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#6366f1" />
+      </View>
+    );
   }
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Historique</Text>
+      <View style={[styles.header, isRTL && styles.headerRTL]}>
+        <Text style={[styles.headerTitle, isRTL && styles.textRTL]}>{t('history')}</Text>
+        <Text style={[styles.headerSubtitle, isRTL && styles.textRTL]}>
+          {transactions.length} {t('transactions') ?? 'transactions'}
+        </Text>
       </View>
 
       <FlatList
         data={transactions}
-        keyExtractor={item => item.id.toString()}
         renderItem={renderTransaction}
-        contentContainerStyle={styles.listContainer}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>Aucune transaction enregistrée.</Text>
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={[
+          styles.listContent,
+          transactions.length === 0 && styles.emptyList,
+        ]}
+        ListEmptyComponent={renderEmpty}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#6366f1']}
+            tintColor="#6366f1"
+          />
         }
       />
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  header: { padding: 20, paddingTop: 60, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#0f172a' },
-  listContainer: { padding: 16 },
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: 12, padding: 16, marginBottom: 12, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2 },
-  cardIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
-  iconText: { fontSize: 18 },
-  cardInfo: { flex: 1 },
-  titleText: { fontSize: 16, fontWeight: 'bold', color: '#0f172a', marginBottom: 4 },
-  dateText: { fontSize: 13, color: '#64748b' },
-  amountContainer: { alignItems: 'flex-end' },
-  amountText: { fontSize: 16, fontWeight: 'bold' },
-  emptyText: { textAlign: 'center', color: '#94a3b8', marginTop: 40, fontSize: 16 }
+  container: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  headerRTL: {
+    alignItems: 'flex-end',
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#94a3b8',
+    marginTop: 2,
+  },
+  listContent: {
+    padding: 16,
+    gap: 10,
+  },
+  emptyList: {
+    flex: 1,
+  },
+  card: {
+    flexDirection: 'row',
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    padding: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cardRTL: {
+    flexDirection: 'row-reverse',
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  icon: {
+    fontSize: 20,
+  },
+  cardContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  cardContentRTL: {
+    marginLeft: 0,
+    marginRight: 12,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  rowRTL: {
+    flexDirection: 'row-reverse',
+  },
+  categoryName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1e293b',
+    flex: 1,
+    marginRight: 8,
+  },
+  amount: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  description: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 3,
+  },
+  date: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginTop: 4,
+  },
+  textRTL: {
+    textAlign: 'right',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#94a3b8',
+    textAlign: 'center',
+  },
 });
