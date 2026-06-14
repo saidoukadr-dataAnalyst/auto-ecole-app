@@ -25,7 +25,15 @@ type TranslationKeys =
   | 'expense_saved' | 'income_saved' | 'student_added' | 'vehicle_added'
   | 'fill_required' | 'invalid_amount' | 'select_category'
   | 'recovery_title' | 'recovery_instruction' | 'recovery_key'
-  | 'validate_key' | 'valid_key' | 'invalid_key';
+  | 'validate_key' | 'valid_key' | 'invalid_key'
+  | 'amount_required' | 'category_required' | 'vehicle_required'
+  | 'mileage_required' | 'mileage_placeholder' | 'description_placeholder'
+  | 'student' | 'alert_tech_visit' | 'alert_oil_change' | 'no_recent_transactions'
+  | 'see_all' | 'export_pdf_success' | 'export_csv_success' | 'backup_success'
+  | 'export_pdf_desc' | 'export_csv_desc' | 'backup_database' | 'backup_database_desc'
+  | 'period_today' | 'period_week' | 'period_month' | 'period_year'
+  | 'menu_students' | 'menu_vehicles' | 'menu_history' | 'menu_settings'
+  | 'kpi_income' | 'kpi_expense' | 'kpi_net_profit';
 
 type Translations = Record<Lang, Record<TranslationKeys, string>>;
 
@@ -112,6 +120,35 @@ export const translations: Translations = {
     validate_key: 'Valider la clé',
     valid_key: 'Clé valide ! Créez un nouveau PIN.',
     invalid_key: 'Clé de restauration incorrecte.',
+    amount_required: 'Montant obligatoire.',
+    category_required: 'Catégorie obligatoire.',
+    vehicle_required: 'Véhicule obligatoire.',
+    mileage_required: 'Kilométrage obligatoire.',
+    mileage_placeholder: 'km',
+    description_placeholder: 'Détails...',
+    student: 'Élève',
+    alert_tech_visit: 'Visite',
+    alert_oil_change: 'Vidange',
+    no_recent_transactions: 'Rien à signaler.',
+    see_all: 'Tout voir',
+    export_pdf_success: 'PDF généré !',
+    export_csv_success: 'CSV exporté !',
+    backup_success: 'Sauvegarde réussie !',
+    export_pdf_desc: 'Bilan comptable du mois',
+    export_csv_desc: 'Pour votre expert-comptable',
+    backup_database: 'Sauvegarder les données',
+    backup_database_desc: 'Créer une copie de secours',
+    period_today: 'Aujourd\'hui',
+    period_week: 'Cette Semaine',
+    period_month: 'Ce Mois',
+    period_year: 'Cette Année',
+    menu_students: 'Élèves',
+    menu_vehicles: 'Véhicules',
+    menu_history: 'Historique',
+    menu_settings: 'Paramètres',
+    kpi_income: 'Encaissé',
+    kpi_expense: 'Dépensé',
+    kpi_net_profit: 'Bénéfice Net',
   },
   ar: {
     app_name: 'مدرستي',
@@ -195,6 +232,35 @@ export const translations: Translations = {
     validate_key: 'تأكيد المفتاح',
     valid_key: 'مفتاح صالح! أنشئ PIN جديد.',
     invalid_key: 'مفتاح الاستعادة غير صحيح.',
+    amount_required: 'المبلغ إجباري.',
+    category_required: 'الفئة إجبارية.',
+    vehicle_required: 'المركبة إجبارية.',
+    mileage_required: 'الكيلومتر إجباري.',
+    mileage_placeholder: 'كلم',
+    description_placeholder: 'تفاصيل...',
+    student: 'التلميذ',
+    alert_tech_visit: 'المراقبة',
+    alert_oil_change: 'تغيير الزيت',
+    no_recent_transactions: 'لا يوجد شيء لعرضه.',
+    see_all: 'عرض الكل',
+    export_pdf_success: 'تم إنشاء PDF!',
+    export_csv_success: 'تم تصدير CSV!',
+    backup_success: 'تم النسخ الاحتياطي!',
+    export_pdf_desc: 'التقرير المالي للشهر',
+    export_csv_desc: 'للمحاسب الخاص بك',
+    backup_database: 'النسخ الاحتياطي للبيانات',
+    backup_database_desc: 'إنشاء نسخة احتياطية',
+    period_today: 'اليوم',
+    period_week: 'هذا الأسبوع',
+    period_month: 'هذا الشهر',
+    period_year: 'هذه السنة',
+    menu_students: 'التلاميذ',
+    menu_vehicles: 'المركبات',
+    menu_history: 'السجل',
+    menu_settings: 'الإعدادات',
+    kpi_income: 'المداخيل',
+    kpi_expense: 'المصاريف',
+    kpi_net_profit: 'الربح الصافي',
   },
 };
 

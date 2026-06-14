@@ -5,6 +5,7 @@ import { ActivityIndicator, View } from 'react-native';
 
 import { SecurityService } from './src/services/SecurityService';
 import { DatabaseService } from './src/services/DatabaseService';
+import { LanguageProvider } from './src/services/i18n';
 
 // Écrans
 import { ActivationScreen } from './src/screens/ActivationScreen';
@@ -48,30 +49,35 @@ export default function App() {
     );
   }
 
+  let content;
   if (!isActivated) {
-    return <ActivationScreen onActivated={() => setIsActivated(true)} />;
-  }
-
-  if (!isUnlocked) {
-    return <PinScreen onUnlocked={() => setIsUnlocked(true)} />;
+    content = <ActivationScreen onActivated={() => setIsActivated(true)} />;
+  } else if (!isUnlocked) {
+    content = <PinScreen onUnlocked={() => setIsUnlocked(true)} />;
+  } else {
+    content = (
+      <NavigationContainer>
+        <Stack.Navigator initialRouteName="Dashboard">
+          <Stack.Screen name="Dashboard" component={DashboardScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="Students" component={StudentsScreen} options={{ title: 'Gestion des Élèves' }} />
+          <Stack.Screen name="Vehicles" component={VehiclesScreen} options={{ title: 'Parc Automobile' }} />
+          <Stack.Screen name="History" component={HistoryScreen} options={{ title: 'Historique Complet' }} />
+          <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Paramètres & Export' }} />
+          
+          <Stack.Screen name="InputExpense" options={{ title: 'Nouvelle Dépense', presentation: 'modal' }}>
+            {({ navigation }) => <InputExpenseScreen onSaveSuccess={() => navigation.goBack()} onCancel={() => navigation.goBack()} />}
+          </Stack.Screen>
+          <Stack.Screen name="InputIncome" options={{ title: 'Nouvel Encaissement', presentation: 'modal' }}>
+            {({ navigation }) => <InputIncomeScreen onSaveSuccess={() => navigation.goBack()} onCancel={() => navigation.goBack()} />}
+          </Stack.Screen>
+        </Stack.Navigator>
+      </NavigationContainer>
+    );
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName="Dashboard">
-        <Stack.Screen name="Dashboard" component={DashboardScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="Students" component={StudentsScreen} options={{ title: 'Gestion des Élèves' }} />
-        <Stack.Screen name="Vehicles" component={VehiclesScreen} options={{ title: 'Parc Automobile' }} />
-        <Stack.Screen name="History" component={HistoryScreen} options={{ title: 'Historique Complet' }} />
-        <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Paramètres & Export' }} />
-        
-        <Stack.Screen name="InputExpense" options={{ title: 'Nouvelle Dépense', presentation: 'modal' }}>
-          {({ navigation }) => <InputExpenseScreen onSaveSuccess={() => navigation.goBack()} onCancel={() => navigation.goBack()} />}
-        </Stack.Screen>
-        <Stack.Screen name="InputIncome" options={{ title: 'Nouvel Encaissement', presentation: 'modal' }}>
-          {({ navigation }) => <InputIncomeScreen onSaveSuccess={() => navigation.goBack()} onCancel={() => navigation.goBack()} />}
-        </Stack.Screen>
-      </Stack.Navigator>
-    </NavigationContainer>
+    <LanguageProvider>
+      {content}
+    </LanguageProvider>
   );
 }
