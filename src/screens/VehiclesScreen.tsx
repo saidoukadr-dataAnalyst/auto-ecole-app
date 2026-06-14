@@ -4,7 +4,7 @@ import { DatabaseService } from '../services/DatabaseService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
 
-export default function VehiclesScreen() {
+export function VehiclesScreen() {
   const { t, isRTL } = useLanguage();
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

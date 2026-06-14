@@ -17,13 +17,21 @@ export class SecurityService {
    * Retourne androidId sur Android, et identifierForVendor sur iOS.
    */
   static async getDeviceId(): Promise<string> {
+    let id: string | null | undefined;
     if (Platform.OS === 'android') {
-      return Application.androidId || "UNKNOWN_ANDROID_ID";
+      id = Application.androidId;
     } else if (Platform.OS === 'ios') {
-      const iosId = await Application.getIosIdForVendorAsync();
-      return iosId || "UNKNOWN_IOS_ID";
+      id = await Application.getIosIdForVendorAsync();
     }
-    return "UNKNOWN_DEVICE_ID";
+    
+    if (!id || id.includes('UNKNOWN')) {
+      id = await SecureStore.getItemAsync('APP_GENERATED_DEVICE_ID');
+      if (!id) {
+        id = Crypto.randomUUID();
+        await SecureStore.setItemAsync('APP_GENERATED_DEVICE_ID', id);
+      }
+    }
+    return id;
   }
 
   /**

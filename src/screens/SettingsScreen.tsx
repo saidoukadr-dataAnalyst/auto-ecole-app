@@ -6,7 +6,7 @@ import { showToast } from '../services/ToastService';
 
 type ActionKey = 'pdf' | 'csv' | 'backup';
 
-export default function SettingsScreen() {
+export function SettingsScreen() {
   const { t, isRTL } = useLanguage();
   const [loadingAction, setLoadingAction] = useState<ActionKey | null>(null);
 

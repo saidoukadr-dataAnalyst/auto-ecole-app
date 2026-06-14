@@ -4,7 +4,7 @@ import { DatabaseService } from '../services/DatabaseService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
 
-export default function StudentsScreen() {
+export function StudentsScreen() {
   const { t, isRTL } = useLanguage();
   const [students, setStudents] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);

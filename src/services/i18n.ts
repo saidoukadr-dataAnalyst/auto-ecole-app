@@ -33,7 +33,11 @@ type TranslationKeys =
   | 'export_pdf_desc' | 'export_csv_desc' | 'backup_database' | 'backup_database_desc'
   | 'period_today' | 'period_week' | 'period_month' | 'period_year'
   | 'menu_students' | 'menu_vehicles' | 'menu_history' | 'menu_settings'
-  | 'kpi_income' | 'kpi_expense' | 'kpi_net_profit';
+  | 'kpi_income' | 'kpi_expense' | 'kpi_net_profit'
+  | 'activation_title' | 'activation_subtitle' | 'activation_device_label'
+  | 'activation_copy' | 'activation_key_label' | 'activation_unlock'
+  | 'activation_device_error' | 'activation_key_empty' | 'activation_success'
+  | 'activation_invalid_key' | 'activation_copied';
 
 type Translations = Record<Lang, Record<TranslationKeys, string>>;
 
@@ -149,6 +153,17 @@ export const translations: Translations = {
     kpi_income: 'Encaissé',
     kpi_expense: 'Dépensé',
     kpi_net_profit: 'Bénéfice Net',
+    activation_title: 'Activation Requise',
+    activation_subtitle: 'Veuillez entrer votre clé d\'activation.',
+    activation_device_label: 'ID de l\'appareil',
+    activation_copy: 'Copier',
+    activation_key_label: 'Clé d\'activation',
+    activation_unlock: 'Déverrouiller',
+    activation_device_error: 'Erreur lors de la récupération de l\'ID de l\'appareil.',
+    activation_key_empty: 'Veuillez entrer une clé d\'activation.',
+    activation_success: 'Activation réussie !',
+    activation_invalid_key: 'Clé invalide.',
+    activation_copied: 'ID de l\'appareil copié dans le presse-papiers.',
   },
   ar: {
     app_name: 'مدرستي',
@@ -261,6 +276,17 @@ export const translations: Translations = {
     kpi_income: 'المداخيل',
     kpi_expense: 'المصاريف',
     kpi_net_profit: 'الربح الصافي',
+    activation_title: 'التفعيل مطلوب',
+    activation_subtitle: 'الرجاء إدخال مفتاح التفعيل الخاص بك.',
+    activation_device_label: 'معرف الجهاز',
+    activation_copy: 'نسخ',
+    activation_key_label: 'مفتاح التفعيل',
+    activation_unlock: 'فتح',
+    activation_device_error: 'حدث خطأ أثناء استرداد معرف الجهاز.',
+    activation_key_empty: 'الرجاء إدخال مفتاح التفعيل.',
+    activation_success: 'تم التفعيل بنجاح!',
+    activation_invalid_key: 'مفتاح غير صالح.',
+    activation_copied: 'تم نسخ معرف الجهاز إلى الحافظة.',
   },
 };
 

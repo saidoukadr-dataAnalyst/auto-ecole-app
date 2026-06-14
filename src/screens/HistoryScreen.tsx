@@ -12,7 +12,7 @@ interface Transaction {
   category_name: string;
 }
 
-export default function HistoryScreen() {
+export function HistoryScreen() {
   const { t, isRTL } = useLanguage();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);

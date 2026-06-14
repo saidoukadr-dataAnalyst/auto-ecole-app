@@ -94,18 +94,24 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
       </View>
 
       {/* PERIOD FILTER */}
-      <View style={[styles.filterContainer, isRTL && styles.rtlRow]}>
-        {periodKeys.map((p) => (
-          <TouchableOpacity
-            key={p.key}
-            style={[styles.filterChip, period === p.key && styles.filterChipActive]}
-            onPress={() => setPeriod(p.key)}
-          >
-            <Text style={[styles.filterText, period === p.key && styles.filterTextActive]}>
-              {p.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      <View>
+        <ScrollView 
+          horizontal={true} 
+          showsHorizontalScrollIndicator={false} 
+          contentContainerStyle={[styles.filterContainer, isRTL && styles.rtlRow]}
+        >
+          {periodKeys.map((p) => (
+            <TouchableOpacity
+              key={p.key}
+              style={[styles.filterChip, period === p.key && styles.filterChipActive]}
+              onPress={() => setPeriod(p.key)}
+            >
+              <Text style={[styles.filterText, period === p.key && styles.filterTextActive]}>
+                {p.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>

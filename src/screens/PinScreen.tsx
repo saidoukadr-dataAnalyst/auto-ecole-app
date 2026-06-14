@@ -150,11 +150,9 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
   if (mode === 'RECOVERY') {
     return (
       <View style={styles.container}>
-        <View style={styles.bgTop} />
-        <View style={styles.bgBottom} />
         <View style={styles.content}>
-          <Text style={styles.title}>{t('pin_forgot_title')}</Text>
-          <Text style={styles.subtitle}>{t('pin_forgot_subtitle')}</Text>
+          <Text style={styles.title}>{t('recovery_title')}</Text>
+          <Text style={styles.subtitle}>{t('recovery_instruction')}</Text>
 
           <View style={styles.deviceCodeContainer}>
             <Text style={styles.deviceCode}>{deviceId}</Text>
@@ -162,7 +160,7 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
 
           <TextInput
             style={styles.recoveryInput}
-            placeholder={t('recovery_key_placeholder')}
+            placeholder={t('recovery_key')}
             placeholderTextColor="rgba(255,255,255,0.4)"
             value={recoveryKey}
             onChangeText={setRecoveryKey}
@@ -170,7 +168,7 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
           />
 
           <TouchableOpacity style={styles.validateButton} onPress={handleRecovery}>
-            <Text style={styles.validateButtonText}>{t('recovery_validate')}</Text>
+            <Text style={styles.validateButtonText}>{t('validate_key')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.cancelLink} onPress={() => setMode('VERIFY')}>
@@ -186,9 +184,9 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
 
   const getTitle = () => {
     if (mode === 'CREATE') {
-      return step === 1 ? t('pin_create') : t('pin_confirm');
+      return step === 1 ? t('create_pin') : t('confirm_pin');
     }
-    return t('pin_enter');
+    return t('enter_pin');
   };
 
   const keypadRows: (string | null)[][] = [
@@ -200,8 +198,6 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.bgTop} />
-      <View style={styles.bgBottom} />
       <View style={styles.content}>
         <Text style={styles.title}>{getTitle()}</Text>
 
@@ -254,7 +250,7 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
 
         {mode === 'VERIFY' && (
           <TouchableOpacity style={styles.forgotLink} onPress={() => setMode('RECOVERY')}>
-            <Text style={styles.forgotLinkText}>{t('pin_forgot')}</Text>
+            <Text style={styles.forgotLinkText}>{t('forgot_pin')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -272,22 +268,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0f172a',
-  },
-  bgTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '50%',
-    backgroundColor: '#0f172a',
-  },
-  bgBottom: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '50%',
-    backgroundColor: '#1e293b',
   },
   content: {
     flex: 1,
