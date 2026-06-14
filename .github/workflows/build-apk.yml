@@ -33,12 +33,6 @@ jobs:
       - name: 🏗️ Generate Native Android Code (Expo Prebuild)
         run: npx expo prebuild --platform android --clean --no-install
 
-      - name: ✂️ Optimize APK Size
-        working-directory: android/app
-        run: |
-          sed -i 's/def enableProguardInReleaseBuilds = false/def enableProguardInReleaseBuilds = true/' build.gradle
-          sed -i '/defaultConfig {/a \        ndk { abiFilters "arm64-v8a", "armeabi-v7a" }' build.gradle
-
       - name: 🔨 Build Android Release APK
         working-directory: android
         run: ./gradlew assembleRelease
