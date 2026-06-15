@@ -19,7 +19,7 @@ export class SecurityService {
   static async getDeviceId(): Promise<string> {
     let id: string | null | undefined;
     if (Platform.OS === 'android') {
-      id = Application.androidId;
+      id = Application.getAndroidId();
     } else if (Platform.OS === 'ios') {
       id = await Application.getIosIdForVendorAsync();
     }
@@ -55,7 +55,7 @@ export class SecurityService {
   private static customBtoa(str: string): string {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
     let output = '';
-    for (let block, charCode, idx = 0, map = chars;
+    for (let block = 0, charCode, idx = 0, map = chars;
       str.charAt(idx | 0) || (map = '=', idx % 1);
       output += map.charAt(63 & block >> 8 - idx % 1 * 8)
     ) {

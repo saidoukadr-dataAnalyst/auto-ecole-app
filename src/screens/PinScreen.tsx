@@ -35,7 +35,7 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
         const id = await SecurityService.getDeviceId();
         setDeviceId(id);
       } catch {
-        showToast(t('pin_storage_error'), 'error');
+        showToast(t('pin_storage_error'));
       } finally {
         setLoading(false);
       }
@@ -97,7 +97,7 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
         onUnlocked();
       } else {
         Vibration.vibrate(300);
-        showToast(t('pin_wrong'), 'error');
+        showToast(t('pin_wrong'));
         resetDotScales();
         setPin('');
       }
@@ -108,11 +108,11 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
       } else if (currentStep === 2) {
         if (pin === completedPin) {
           await SecurityService.saveUserPin(pin);
-          showToast(t('pin_saved'), 'success');
+          showToast(t('pin_saved'));
           onUnlocked();
         } else {
           Vibration.vibrate(300);
-          showToast(t('pin_mismatch'), 'error');
+          showToast(t('pin_mismatch'));
           resetDotScales();
           setPin('');
           setConfirmPin('');
@@ -128,14 +128,14 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
     const isValid = await SecurityService.verifyRecoveryKey(cleanKey);
 
     if (isValid) {
-      showToast(t('recovery_success'), 'success');
+      showToast(t('recovery_success'));
       setRecoveryKey('');
       setMode('CREATE');
       setStep(1);
       setPin('');
       setConfirmPin('');
     } else {
-      showToast(t('recovery_invalid'), 'error');
+      showToast(t('recovery_invalid'));
     }
   };
 

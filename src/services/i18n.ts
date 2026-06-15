@@ -41,7 +41,8 @@ type TranslationKeys =
   | 'edit' | 'confirm_delete' | 'confirm_delete_msg' | 'advance' | 'remaining_amount'
   | 'oil_change_date' | 'select_date' | 'no_data' | 'overdue' | 'technical_visit'
   | 'vehicle_updated' | 'vehicle_deleted' | 'student_updated' | 'student_deleted'
-  | 'edit_vehicle' | 'edit_student' | 'yes' | 'no';
+  | 'edit_vehicle' | 'edit_student' | 'yes' | 'no'
+  | 'vehicle' | 'transactions' | 'pin_storage_error' | 'recovery_success' | 'recovery_invalid';
 
 type Translations = Record<Lang, Record<TranslationKeys, string>>;
 
@@ -186,6 +187,11 @@ export const translations: Translations = {
     edit_student: 'Modifier l\'Élève',
     yes: 'Oui',
     no: 'Non',
+    vehicle: 'Véhicule',
+    transactions: 'Transactions',
+    pin_storage_error: 'Erreur d\'accès au stockage.',
+    recovery_success: 'Restauration réussie !',
+    recovery_invalid: 'Clé de restauration invalide.',
   },
   ar: {
     app_name: 'مدرستي',
@@ -327,6 +333,11 @@ export const translations: Translations = {
     edit_student: 'تعديل التلميذ',
     yes: 'نعم',
     no: 'لا',
+    vehicle: 'المركبة',
+    transactions: 'المعاملات',
+    pin_storage_error: 'خطأ في الوصول إلى التخزين.',
+    recovery_success: 'تم الاسترداد بنجاح!',
+    recovery_invalid: 'مفتاح الاسترداد غير صالح.',
   },
 };
 

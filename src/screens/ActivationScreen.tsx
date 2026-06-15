@@ -18,7 +18,7 @@ export const ActivationScreen = ({ onActivated }: { onActivated: () => void }) =
         const id = await SecurityService.getDeviceId();
         setDeviceId(id);
       } catch {
-        showToast(t('activation_device_error'), 'error');
+        showToast(t('activation_device_error'));
       } finally {
         setLoading(false);
       }
@@ -28,7 +28,7 @@ export const ActivationScreen = ({ onActivated }: { onActivated: () => void }) =
 
   const handleVerify = async () => {
     if (!inputKey.trim()) {
-      showToast(t('activation_key_empty'), 'error');
+      showToast(t('activation_key_empty'));
       return;
     }
 
@@ -38,16 +38,16 @@ export const ActivationScreen = ({ onActivated }: { onActivated: () => void }) =
     setVerifying(false);
 
     if (isValid) {
-      showToast(t('activation_success'), 'success');
+      showToast(t('activation_success'));
       onActivated();
     } else {
-      showToast(t('activation_invalid_key'), 'error');
+      showToast(t('activation_invalid_key'));
     }
   };
 
   const copyToClipboard = async () => {
     await Clipboard.setStringAsync(deviceId);
-    showToast(t('activation_copied'), 'success');
+    showToast(t('activation_copied'));
   };
 
   if (loading) {
