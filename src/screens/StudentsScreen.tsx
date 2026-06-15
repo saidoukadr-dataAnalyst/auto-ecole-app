@@ -9,8 +9,15 @@ export function StudentsScreen() {
   const [students, setStudents] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
   const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'ACTIVE'|'ARCHIVED'>('ACTIVE');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // History modal state
+  const [historyModalVisible, setHistoryModalVisible] = useState(false);
+  const [studentHistory, setStudentHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [selectedStudentForHistory, setSelectedStudentForHistory] = useState<any>(null);
 
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -40,13 +47,16 @@ export function StudentsScreen() {
   }, [loadStudents]);
 
   useEffect(() => {
+    let filteredData = students.filter(s => (s.status || 'ACTIVE') === filterStatus);
+    
     if (!search.trim()) {
       setFiltered(students);
     } else {
       const q = search.toLowerCase();
-      setFiltered(students.filter((s) => s.name?.toLowerCase().includes(q) || s.phone?.includes(q)));
+      filteredData = filteredData.filter((s) => s.name?.toLowerCase().includes(q) || s.phone?.includes(q));
     }
-  }, [search, students]);
+    setFiltered(filteredData);
+  }, [search, students, filterStatus]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -96,6 +106,45 @@ export function StudentsScreen() {
         },
       ]
     );
+  };
+
+  const handleToggleStatus = async (student: any) => {
+    const newStatus = student.status === 'ARCHIVED' ? 'ACTIVE' : 'ARCHIVED';
+    const actionText = newStatus === 'ARCHIVED' ? 'archiver cet élève (permis obtenu/abandon)' : 'réactiver cet élève';
+    
+    Alert.alert(
+      "Changer le statut",
+      `Voulez-vous vraiment ${actionText} ?`,
+      [
+        { text: t('cancel') || 'Annuler', style: 'cancel' },
+        {
+          text: t('yes') || 'Oui',
+          onPress: async () => {
+            try {
+              await DatabaseService.updateStudentStatus(student.id, newStatus);
+              showToast("Statut mis à jour");
+              loadStudents();
+            } catch {
+              showToast(t('error'));
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const openHistoryModal = async (student: any) => {
+    setSelectedStudentForHistory(student);
+    setHistoryModalVisible(true);
+    setLoadingHistory(true);
+    try {
+      const data = await DatabaseService.getStudentTransactions(student.id);
+      setStudentHistory(data);
+    } catch {
+      showToast(t('error'));
+    } finally {
+      setLoadingHistory(false);
+    }
   };
 
   const handleSave = async () => {
@@ -160,6 +209,12 @@ export function StudentsScreen() {
         <View style={[styles.cardHeader, isRTL && styles.rowReverse]}>
           <Text style={[styles.cardName, isRTL && styles.textRight]}>{item.name}</Text>
           <View style={[styles.cardActions, isRTL && styles.rowReverse]}>
+            <TouchableOpacity style={styles.historyBtn} onPress={() => openHistoryModal(item)}>
+              <Text style={styles.historyBtnText}>📋</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.statusBtn} onPress={() => handleToggleStatus(item)}>
+              <Text style={styles.statusBtnText}>{item.status === 'ARCHIVED' ? '♻️' : '📦'}</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(item)}>
               <Text style={styles.editBtnText}>✏️</Text>
             </TouchableOpacity>
@@ -227,14 +282,30 @@ export function StudentsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Search */}
-      <TextInput
-        style={[styles.searchBar, isRTL && styles.textRight]}
-        placeholder={`🔍 ${t('search')}...`}
-        value={search}
-        onChangeText={setSearch}
-        placeholderTextColor="#999"
-      />
+      {/* Search & Filter */}
+      <View style={styles.filterContainer}>
+        <View style={styles.tabContainer}>
+          <TouchableOpacity 
+            style={[styles.tab, filterStatus === 'ACTIVE' && styles.activeTab]}
+            onPress={() => setFilterStatus('ACTIVE')}
+          >
+            <Text style={[styles.tabText, filterStatus === 'ACTIVE' && styles.activeTabText]}>Actifs</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.tab, filterStatus === 'ARCHIVED' && styles.activeTab]}
+            onPress={() => setFilterStatus('ARCHIVED')}
+          >
+            <Text style={[styles.tabText, filterStatus === 'ARCHIVED' && styles.activeTabText]}>Archivés</Text>
+          </TouchableOpacity>
+        </View>
+        <TextInput
+          style={[styles.searchBar, isRTL && styles.textRight]}
+          placeholder={`🔍 ${t('search')}...`}
+          value={search}
+          onChangeText={setSearch}
+          placeholderTextColor="#999"
+        />
+      </View>
 
       {/* List */}
       <FlatList
@@ -337,6 +408,38 @@ export function StudentsScreen() {
                 )}
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* History Modal */}
+      <Modal visible={historyModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '80%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Historique : {selectedStudentForHistory?.name}</Text>
+              <TouchableOpacity onPress={() => setHistoryModalVisible(false)}>
+                <Text style={styles.closeBtn}>❌</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {loadingHistory ? (
+              <ActivityIndicator size="large" color="#4A90D9" style={{ margin: 20 }} />
+            ) : (
+              <FlatList
+                data={studentHistory}
+                keyExtractor={(item) => String(item.id)}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item }) => (
+                  <View style={styles.historyCard}>
+                    <Text style={styles.historyDate}>{new Date(item.date).toLocaleDateString()}</Text>
+                    <Text style={styles.historyAmount}>+{item.amount} DH</Text>
+                    {item.description ? <Text style={styles.historyDesc}>{item.description}</Text> : null}
+                  </View>
+                )}
+                ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 20 }}>Aucun paiement enregistré.</Text>}
+              />
+            )}
           </View>
         </View>
       </Modal>
@@ -450,7 +553,91 @@ const styles = StyleSheet.create({
   cardDetail: {
     fontSize: 14,
     color: '#666',
-    marginTop: 2,
+    marginTop: 8,
+  },
+  filterContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 12,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#E8ECF0',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 12,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  activeTab: {
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  tabText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '600',
+  },
+  activeTabText: {
+    color: '#1A1A2E',
+  },
+  historyBtn: {
+    backgroundColor: '#F3E8FF',
+    borderRadius: 8,
+    padding: 8,
+  },
+  historyBtnText: {
+    fontSize: 16,
+  },
+  statusBtn: {
+    backgroundColor: '#E0E7FF',
+    borderRadius: 8,
+    padding: 8,
+  },
+  statusBtnText: {
+    fontSize: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  closeBtn: {
+    fontSize: 20,
+  },
+  historyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    gap: 8,
+  },
+  historyDate: {
+    color: '#666',
+    fontSize: 13,
+    flex: 1,
+  },
+  historyAmount: {
+    color: '#16a34a',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  historyDesc: {
+    color: '#333',
+    fontSize: 14,
+    fontStyle: 'italic',
   },
   paymentInfo: {
     flexDirection: 'row',

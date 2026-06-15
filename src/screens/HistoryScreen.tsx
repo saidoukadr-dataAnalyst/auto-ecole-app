@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, SectionList, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, SectionList, ActivityIndicator, RefreshControl, TouchableOpacity, Alert } from 'react-native';
 import { DatabaseService } from '../services/DatabaseService';
 import { useLanguage } from '../services/i18n';
+import { showToast } from '../services/ToastService';
 
 interface Transaction {
   id: number;
@@ -93,6 +94,29 @@ export function HistoryScreen() {
     }
   };
 
+  const handleDeleteTransaction = (item: Transaction) => {
+    Alert.alert(
+      "Supprimer",
+      `Voulez-vous supprimer cette transaction de ${item.amount} DH ?\nCatégorie: ${item.category_name}`,
+      [
+        { text: t('cancel') || "Annuler", style: "cancel" },
+        { 
+          text: "Supprimer", 
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await DatabaseService.deleteTransaction(item.id);
+              showToast("Transaction supprimée");
+              loadTransactions();
+            } catch (e) {
+              showToast(t('error'));
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const renderTransaction = ({ item }: { item: Transaction }) => {
     const isIncome = item.type === 'INCOME';
     const icon = isIncome ? '⬆️' : '⬇️';
@@ -100,7 +124,11 @@ export function HistoryScreen() {
     const prefix = isIncome ? '+' : '-';
 
     return (
-      <View style={[styles.card, isRTL && styles.cardRTL]}>
+      <TouchableOpacity 
+        style={[styles.card, isRTL && styles.cardRTL]}
+        onLongPress={() => handleDeleteTransaction(item)}
+        delayLongPress={500}
+      >
         <View style={[styles.iconContainer, { backgroundColor: isIncome ? '#dcfce7' : '#fee2e2' }]}>
           <Text style={styles.icon}>{icon}</Text>
         </View>
@@ -125,7 +153,7 @@ export function HistoryScreen() {
             {formatDate(item.date)}
           </Text>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 

@@ -100,6 +100,16 @@ export class DatabaseService {
     try {
       await this.db.execAsync('ALTER TABLE Transactions ADD COLUMN mileage_at_transaction INTEGER;');
     } catch (e) {}
+
+    // Migrations pour assurance, vignette et statut étudiant
+    try {
+      await this.db.execAsync('ALTER TABLE Vehicles ADD COLUMN insurance_date TEXT;');
+      await this.db.execAsync('ALTER TABLE Vehicles ADD COLUMN vignette_date TEXT;');
+    } catch (e) {}
+
+    try {
+      await this.db.execAsync('ALTER TABLE Students ADD COLUMN status TEXT DEFAULT "ACTIVE";');
+    } catch (e) {}
   }
 
   private static async seedDefaultCategories(): Promise<void> {
@@ -130,7 +140,7 @@ export class DatabaseService {
   static async getStudents(): Promise<any[]> {
     if (!this.db) await this.initDB();
     return await this.db!.getAllAsync(`
-      SELECT s.id, s.name, s.package_price, s.phone, s.created_at,
+      SELECT s.id, s.name, s.package_price, s.phone, s.created_at, s.status,
         COALESCE((SELECT SUM(t.amount) FROM Transactions t WHERE t.student_id = s.id AND t.type = 'INCOME'), 0) as paid_amount
       FROM Students s
       ORDER BY s.created_at DESC
@@ -166,6 +176,14 @@ export class DatabaseService {
     );
   }
 
+  static async updateStudentStatus(id: number, status: 'ACTIVE' | 'ARCHIVED'): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.runAsync(
+      'UPDATE Students SET status = ? WHERE id = ?',
+      status, id
+    );
+  }
+
   static async deleteStudent(id: number): Promise<void> {
     if (!this.db) await this.initDB();
     await this.db!.runAsync('UPDATE Transactions SET student_id = NULL WHERE student_id = ?', id);
@@ -179,7 +197,7 @@ export class DatabaseService {
   static async getVehicles(): Promise<any[]> {
     if (!this.db) await this.initDB();
     return await this.db!.getAllAsync(`
-      SELECT v.id, v.name, v.registration, v.current_mileage, v.next_technical_visit,
+      SELECT v.id, v.name, v.registration, v.current_mileage, v.next_technical_visit, v.insurance_date, v.vignette_date,
         COALESCE(
           (SELECT o.next_mileage FROM OilChanges o WHERE o.vehicle_id = v.id ORDER BY o.id DESC LIMIT 1),
           v.current_mileage + 10000
@@ -200,12 +218,20 @@ export class DatabaseService {
     `);
   }
 
-  static async addVehicle(name: string, registration: string, mileage: number, nextVisit: string, oilChangeDate?: string): Promise<void> {
+  static async addVehicle(
+    name: string, 
+    registration: string, 
+    mileage: number, 
+    nextVisit: string, 
+    oilChangeDate?: string,
+    insuranceDate?: string,
+    vignetteDate?: string
+  ): Promise<void> {
     if (!this.db) await this.initDB();
     await this.db!.withTransactionAsync(async () => {
       const result = await this.db!.runAsync(
-        'INSERT INTO Vehicles (name, registration, current_mileage, next_technical_visit) VALUES (?, ?, ?, ?)',
-        name, registration, mileage, nextVisit || null
+        'INSERT INTO Vehicles (name, registration, current_mileage, next_technical_visit, insurance_date, vignette_date) VALUES (?, ?, ?, ?, ?, ?)',
+        name, registration, mileage, nextVisit || null, insuranceDate || null, vignetteDate || null
       );
       if (oilChangeDate) {
         const nextOilMileage = mileage + 10000;
@@ -217,11 +243,19 @@ export class DatabaseService {
     });
   }
 
-  static async updateVehicle(id: number, name: string, registration: string, mileage: number, nextVisit: string): Promise<void> {
+  static async updateVehicle(
+    id: number, 
+    name: string, 
+    registration: string, 
+    mileage: number, 
+    nextVisit: string,
+    insuranceDate?: string,
+    vignetteDate?: string
+  ): Promise<void> {
     if (!this.db) await this.initDB();
     await this.db!.runAsync(
-      'UPDATE Vehicles SET name = ?, registration = ?, current_mileage = ?, next_technical_visit = ? WHERE id = ?',
-      name, registration, mileage, nextVisit || null, id
+      'UPDATE Vehicles SET name = ?, registration = ?, current_mileage = ?, next_technical_visit = ?, insurance_date = ?, vignette_date = ? WHERE id = ?',
+      name, registration, mileage, nextVisit || null, insuranceDate || null, vignetteDate || null, id
     );
   }
 
@@ -235,6 +269,22 @@ export class DatabaseService {
   // =========================================================================
   // TRANSACTIONS
   // =========================================================================
+
+  static async getStudentTransactions(studentId: number): Promise<any[]> {
+    if (!this.db) await this.initDB();
+    return await this.db!.getAllAsync(`
+      SELECT t.id, t.amount, t.description, t.transaction_date as date, c.name as category_name
+      FROM Transactions t
+      LEFT JOIN Categories c ON t.category_id = c.id
+      WHERE t.student_id = ? AND t.type = 'INCOME'
+      ORDER BY t.transaction_date DESC
+    `, studentId);
+  }
+
+  static async deleteTransaction(id: number): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.runAsync('DELETE FROM Transactions WHERE id = ?', id);
+  }
 
   static async getTransactions(): Promise<any[]> {
     if (!this.db) await this.initDB();
@@ -407,14 +457,20 @@ export class DatabaseService {
     `);
   }
 
-  static async getTechnicalVisitAlerts(): Promise<any[]> {
+  static async getVehicleAlerts(): Promise<any[]> {
     if (!this.db) await this.initDB();
     return await this.db!.getAllAsync(`
-      SELECT id, name, registration, next_technical_visit, 
-             julianday(next_technical_visit) - julianday('now') as days_remaining
+      SELECT id, name, registration, next_technical_visit, insurance_date, vignette_date,
+             julianday(next_technical_visit) - julianday('now') as visit_days,
+             julianday(insurance_date) - julianday('now') as insurance_days,
+             julianday(vignette_date) - julianday('now') as vignette_days
       FROM Vehicles
-      WHERE (julianday(next_technical_visit) - julianday('now')) <= 7
-      AND (julianday(next_technical_visit) - julianday('now')) >= 0
+      WHERE 
+        ((julianday(next_technical_visit) - julianday('now')) <= 30 AND (julianday(next_technical_visit) - julianday('now')) >= 0)
+        OR
+        ((julianday(insurance_date) - julianday('now')) <= 30 AND (julianday(insurance_date) - julianday('now')) >= 0)
+        OR
+        ((julianday(vignette_date) - julianday('now')) <= 30 AND (julianday(vignette_date) - julianday('now')) >= 0)
     `);
   }
 

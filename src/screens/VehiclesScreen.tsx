@@ -19,11 +19,15 @@ export function VehiclesScreen() {
   const [mileage, setMileage] = useState('');
   const [nextVisit, setNextVisit] = useState('');
   const [oilChangeDate, setOilChangeDate] = useState('');
+  const [insuranceDate, setInsuranceDate] = useState('');
+  const [vignetteDate, setVignetteDate] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Date pickers
   const [showVisitPicker, setShowVisitPicker] = useState(false);
   const [showOilPicker, setShowOilPicker] = useState(false);
+  const [showInsurancePicker, setShowInsurancePicker] = useState(false);
+  const [showVignettePicker, setShowVignettePicker] = useState(false);
 
   const loadVehicles = useCallback(async () => {
     try {
@@ -52,6 +56,8 @@ export function VehiclesScreen() {
     setMileage('');
     setNextVisit('');
     setOilChangeDate('');
+    setInsuranceDate('');
+    setVignetteDate('');
     setEditingVehicle(null);
   };
 
@@ -67,6 +73,8 @@ export function VehiclesScreen() {
     setMileage(String(vehicle.current_mileage || 0));
     setNextVisit(vehicle.next_technical_visit || '');
     setOilChangeDate('');
+    setInsuranceDate(vehicle.insurance_date || '');
+    setVignetteDate(vehicle.vignette_date || '');
     setModalVisible(true);
   };
 
@@ -106,7 +114,9 @@ export function VehiclesScreen() {
           name.trim(),
           registration.trim(),
           parseInt(mileage) || 0,
-          nextVisit.trim()
+          nextVisit.trim(),
+          insuranceDate.trim(),
+          vignetteDate.trim()
         );
         showToast(t('vehicle_updated'));
       } else {
@@ -115,7 +125,9 @@ export function VehiclesScreen() {
           registration.trim(),
           parseInt(mileage) || 0,
           nextVisit.trim(),
-          oilChangeDate.trim() || undefined
+          oilChangeDate.trim() || undefined,
+          insuranceDate.trim(),
+          vignetteDate.trim()
         );
         showToast(t('vehicle_added'));
       }
@@ -143,6 +155,20 @@ export function VehiclesScreen() {
     }
   };
 
+  const onInsuranceDateChange = (_event: any, selectedDate?: Date) => {
+    setShowInsurancePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setInsuranceDate(selectedDate.toISOString().split('T')[0]);
+    }
+  };
+
+  const onVignetteDateChange = (_event: any, selectedDate?: Date) => {
+    setShowVignettePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setVignetteDate(selectedDate.toISOString().split('T')[0]);
+    }
+  };
+
   const isVisitUrgent = (dateStr: string | null) => {
     if (!dateStr) return false;
     const visit = new Date(dateStr);
@@ -155,8 +181,17 @@ export function VehiclesScreen() {
     const oilRemaining = (item.next_oil_change_km || 0) - (item.current_mileage || 0);
     const oilUrgent = oilRemaining <= 1000;
     const visitUrgent = isVisitUrgent(item.next_technical_visit);
+    const insuranceUrgent = isVisitUrgent(item.insurance_date);
+    const vignetteUrgent = isVisitUrgent(item.vignette_date);
+
     const visitDate = item.next_technical_visit
       ? new Date(item.next_technical_visit).toLocaleDateString()
+      : '—';
+    const insDate = item.insurance_date
+      ? new Date(item.insurance_date).toLocaleDateString()
+      : '—';
+    const vigDate = item.vignette_date
+      ? new Date(item.vignette_date).toLocaleDateString()
       : '—';
 
     return (
@@ -195,6 +230,24 @@ export function VehiclesScreen() {
             🔧 {t('technical_visit')}: {visitDate}
           </Text>
           {visitUrgent && (
+            <View style={[styles.alertDot, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]} />
+          )}
+        </View>
+
+        <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 6 }]}>
+          <Text style={[styles.cardDetail, insuranceUrgent && styles.textRed]}>
+            🛡️ Assurance: {insDate}
+          </Text>
+          {insuranceUrgent && (
+            <View style={[styles.alertDot, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]} />
+          )}
+        </View>
+
+        <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 6 }]}>
+          <Text style={[styles.cardDetail, vignetteUrgent && styles.textRed]}>
+            🏷️ Vignette: {vigDate}
+          </Text>
+          {vignetteUrgent && (
             <View style={[styles.alertDot, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]} />
           )}
         </View>
@@ -248,30 +301,36 @@ export function VehiclesScreen() {
       {/* Add/Edit Vehicle Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { maxHeight: '90%' }]}>
             <Text style={[styles.modalTitle, isRTL && styles.textRight]}>
               {editingVehicle ? t('edit_vehicle') : t('add_vehicle')}
             </Text>
+            
+            <View style={{ flex: 1 }}>
+              <FlatList
+                data={[{key: 'form'}]}
+                showsVerticalScrollIndicator={false}
+                renderItem={() => (
+                  <View style={{ paddingBottom: 20 }}>
+                    {/* Nom du Véhicule */}
+                    <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('name')}</Text>
+                    <TextInput
+                      style={[styles.input, isRTL && styles.textRight]}
+                      placeholder={t('name')}
+                      value={name}
+                      onChangeText={setName}
+                      placeholderTextColor="#999"
+                    />
 
-            {/* Nom */}
-            <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('name')}</Text>
-            <TextInput
-              style={[styles.input, isRTL && styles.textRight]}
-              placeholder={t('name')}
-              value={name}
-              onChangeText={setName}
-              placeholderTextColor="#999"
-            />
-
-            {/* Immatriculation */}
-            <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('registration')}</Text>
-            <TextInput
-              style={[styles.input, isRTL && styles.textRight]}
-              placeholder={t('registration')}
-              value={registration}
-              onChangeText={setRegistration}
-              placeholderTextColor="#999"
-            />
+                    {/* Immatriculation */}
+                    <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('registration')}</Text>
+                    <TextInput
+                      style={[styles.input, isRTL && styles.textRight]}
+                      placeholder={t('registration')}
+                      value={registration}
+                      onChangeText={setRegistration}
+                      placeholderTextColor="#999"
+                    />
 
             {/* Kilométrage */}
             <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('mileage')} (km)</Text>
@@ -319,6 +378,42 @@ export function VehiclesScreen() {
                 )}
               </>
             )}
+
+            {/* Assurance - Date Picker */}
+            <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>Date Assurance</Text>
+            <TouchableOpacity style={styles.dateButton} onPress={() => setShowInsurancePicker(true)}>
+              <Text style={[styles.dateButtonText, !insuranceDate && styles.datePlaceholder]}>
+                {insuranceDate ? `🛡️ ${insuranceDate}` : `🛡️ Sélectionner une date`}
+              </Text>
+            </TouchableOpacity>
+            {showInsurancePicker && (
+              <DateTimePicker
+                value={insuranceDate ? new Date(insuranceDate) : new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={onInsuranceDateChange}
+              />
+            )}
+
+            {/* Vignette - Date Picker */}
+            <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>Date Vignette</Text>
+            <TouchableOpacity style={styles.dateButton} onPress={() => setShowVignettePicker(true)}>
+              <Text style={[styles.dateButtonText, !vignetteDate && styles.datePlaceholder]}>
+                {vignetteDate ? `🏷️ ${vignetteDate}` : `🏷️ Sélectionner une date`}
+              </Text>
+            </TouchableOpacity>
+            {showVignettePicker && (
+              <DateTimePicker
+                value={vignetteDate ? new Date(vignetteDate) : new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={onVignetteDateChange}
+              />
+            )}
+                  </View>
+                )}
+              />
+            </View>
 
             <View style={[styles.modalActions, isRTL && styles.rowReverse]}>
               <TouchableOpacity

@@ -4,10 +4,10 @@ import { DatabaseService } from '../services/DatabaseService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
 
-type AlertItem = {
+interface AlertItem {
   id: string;
-  type: 'TECH_VISIT' | 'OIL_CHANGE';
-  level: 'DANGER' | 'WARNING';
+  type: 'TECH_VISIT' | 'OIL_CHANGE' | 'INSURANCE' | 'VIGNETTE';
+  level: 'WARNING' | 'DANGER';
   message: string;
 };
 
@@ -36,17 +36,35 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
     const newAlerts: AlertItem[] = [];
 
     try {
-      const techAlerts = await DatabaseService.getTechnicalVisitAlerts();
-      techAlerts.forEach((alert: any) => {
-        newAlerts.push({
-          id: `tech_${alert.registration}`,
-          type: 'TECH_VISIT',
-          level: alert.days_remaining <= 2 ? 'DANGER' : 'WARNING',
-          message: `⚠️ ${t('alert_tech_visit')} ${alert.name} [${alert.registration}] - ${alert.next_technical_visit}`,
-        });
+      const vehicleAlerts = await DatabaseService.getVehicleAlerts();
+      vehicleAlerts.forEach((alert: any) => {
+        if (alert.visit_days !== null && alert.visit_days <= 30 && alert.visit_days >= 0) {
+          newAlerts.push({
+            id: `tech_${alert.registration}`,
+            type: 'TECH_VISIT',
+            level: alert.visit_days <= 7 ? 'DANGER' : 'WARNING',
+            message: `⚠️ Visite technique proche: ${alert.name} [${alert.registration}] - ${alert.next_technical_visit}`,
+          });
+        }
+        if (alert.insurance_days !== null && alert.insurance_days <= 30 && alert.insurance_days >= 0) {
+          newAlerts.push({
+            id: `ins_${alert.registration}`,
+            type: 'INSURANCE',
+            level: alert.insurance_days <= 7 ? 'DANGER' : 'WARNING',
+            message: `🛡️ Assurance expire bientôt: ${alert.name} [${alert.registration}] - ${alert.insurance_date}`,
+          });
+        }
+        if (alert.vignette_days !== null && alert.vignette_days <= 30 && alert.vignette_days >= 0) {
+          newAlerts.push({
+            id: `vig_${alert.registration}`,
+            type: 'VIGNETTE',
+            level: alert.vignette_days <= 7 ? 'DANGER' : 'WARNING',
+            message: `🏷️ Vignette expire bientôt: ${alert.name} [${alert.registration}] - ${alert.vignette_date}`,
+          });
+        }
       });
     } catch (e) {
-      console.log('Error loading technical visit alerts');
+      console.log('Error loading vehicle alerts', e);
     }
 
     try {
