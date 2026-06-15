@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, ActivityIndicator, RefreshControl, Alert, Platform } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { DatabaseService } from '../services/DatabaseService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
@@ -9,12 +10,20 @@ export function VehiclesScreen() {
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Modal state
   const [modalVisible, setModalVisible] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState<any>(null);
   const [name, setName] = useState('');
   const [registration, setRegistration] = useState('');
   const [mileage, setMileage] = useState('');
   const [nextVisit, setNextVisit] = useState('');
+  const [oilChangeDate, setOilChangeDate] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Date pickers
+  const [showVisitPicker, setShowVisitPicker] = useState(false);
+  const [showOilPicker, setShowOilPicker] = useState(false);
 
   const loadVehicles = useCallback(async () => {
     try {
@@ -37,6 +46,53 @@ export function VehiclesScreen() {
     loadVehicles();
   }, [loadVehicles]);
 
+  const resetForm = () => {
+    setName('');
+    setRegistration('');
+    setMileage('');
+    setNextVisit('');
+    setOilChangeDate('');
+    setEditingVehicle(null);
+  };
+
+  const openAddModal = () => {
+    resetForm();
+    setModalVisible(true);
+  };
+
+  const openEditModal = (vehicle: any) => {
+    setEditingVehicle(vehicle);
+    setName(vehicle.name || '');
+    setRegistration(vehicle.registration || '');
+    setMileage(String(vehicle.current_mileage || 0));
+    setNextVisit(vehicle.next_technical_visit || '');
+    setOilChangeDate('');
+    setModalVisible(true);
+  };
+
+  const handleDelete = (vehicle: any) => {
+    Alert.alert(
+      t('confirm_delete'),
+      t('confirm_delete_msg'),
+      [
+        { text: t('no'), style: 'cancel' },
+        {
+          text: t('yes'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await DatabaseService.deleteVehicle(vehicle.id);
+              showToast(t('vehicle_deleted'));
+              loadVehicles();
+            } catch {
+              showToast(t('error'));
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleSave = async () => {
     if (!name.trim() || !registration.trim()) {
       showToast(t('fill_required'));
@@ -44,18 +100,46 @@ export function VehiclesScreen() {
     }
     setSaving(true);
     try {
-      await DatabaseService.addVehicle(name.trim(), registration.trim(), parseInt(mileage) || 0, nextVisit.trim());
-      showToast(t('vehicle_added'));
-      setName('');
-      setRegistration('');
-      setMileage('');
-      setNextVisit('');
+      if (editingVehicle) {
+        await DatabaseService.updateVehicle(
+          editingVehicle.id,
+          name.trim(),
+          registration.trim(),
+          parseInt(mileage) || 0,
+          nextVisit.trim()
+        );
+        showToast(t('vehicle_updated'));
+      } else {
+        await DatabaseService.addVehicle(
+          name.trim(),
+          registration.trim(),
+          parseInt(mileage) || 0,
+          nextVisit.trim(),
+          oilChangeDate.trim() || undefined
+        );
+        showToast(t('vehicle_added'));
+      }
+      resetForm();
       setModalVisible(false);
       loadVehicles();
     } catch {
       showToast(t('error'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const onVisitDateChange = (_event: any, selectedDate?: Date) => {
+    setShowVisitPicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setNextVisit(selectedDate.toISOString().split('T')[0]);
+    }
+  };
+
+  const onOilDateChange = (_event: any, selectedDate?: Date) => {
+    setShowOilPicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setOilChangeDate(selectedDate.toISOString().split('T')[0]);
     }
   };
 
@@ -77,9 +161,19 @@ export function VehiclesScreen() {
 
     return (
       <View style={styles.card}>
-        <Text style={[styles.cardName, isRTL && styles.textRight]}>
-          🚗 {item.name} - {item.registration}
-        </Text>
+        <View style={[styles.cardHeader, isRTL && styles.rowReverse]}>
+          <Text style={[styles.cardName, isRTL && styles.textRight]}>
+            🚗 {item.name} - {item.registration}
+          </Text>
+          <View style={[styles.cardActions, isRTL && styles.rowReverse]}>
+            <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(item)}>
+              <Text style={styles.editBtnText}>✏️</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDelete(item)}>
+              <Text style={styles.deleteBtnText}>🗑️</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
         <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 8 }]}>
           <Text style={styles.cardDetail}>
@@ -121,7 +215,7 @@ export function VehiclesScreen() {
       {/* Header */}
       <View style={[styles.header, isRTL && styles.rowReverse]}>
         <Text style={styles.headerTitle}>{t('vehicles')}</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={() => setModalVisible(true)}>
+        <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
           <Text style={styles.addBtnText}>+ {t('add_new')}</Text>
         </TouchableOpacity>
       </View>
@@ -140,12 +234,16 @@ export function VehiclesScreen() {
         }
       />
 
-      {/* Add Vehicle Modal */}
+      {/* Add/Edit Vehicle Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={[styles.modalTitle, isRTL && styles.textRight]}>{t('add_new')}</Text>
+            <Text style={[styles.modalTitle, isRTL && styles.textRight]}>
+              {editingVehicle ? t('edit_vehicle') : t('add_vehicle')}
+            </Text>
 
+            {/* Nom */}
+            <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('name')}</Text>
             <TextInput
               style={[styles.input, isRTL && styles.textRight]}
               placeholder={t('name')}
@@ -153,6 +251,9 @@ export function VehiclesScreen() {
               onChangeText={setName}
               placeholderTextColor="#999"
             />
+
+            {/* Immatriculation */}
+            <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('registration')}</Text>
             <TextInput
               style={[styles.input, isRTL && styles.textRight]}
               placeholder={t('registration')}
@@ -160,31 +261,60 @@ export function VehiclesScreen() {
               onChangeText={setRegistration}
               placeholderTextColor="#999"
             />
+
+            {/* Kilométrage */}
+            <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('mileage')} (km)</Text>
             <TextInput
               style={[styles.input, isRTL && styles.textRight]}
-              placeholder={t('mileage')}
+              placeholder="0"
               value={mileage}
               onChangeText={setMileage}
               keyboardType="numeric"
               placeholderTextColor="#999"
             />
-            <TextInput
-              style={[styles.input, isRTL && styles.textRight]}
-              placeholder="YYYY-MM-DD"
-              value={nextVisit}
-              onChangeText={setNextVisit}
-              placeholderTextColor="#999"
-            />
+
+            {/* Visite Technique - Date Picker */}
+            <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('technical_visit')}</Text>
+            <TouchableOpacity style={styles.dateButton} onPress={() => setShowVisitPicker(true)}>
+              <Text style={[styles.dateButtonText, !nextVisit && styles.datePlaceholder]}>
+                {nextVisit ? `📅 ${nextVisit}` : `📅 ${t('select_date')}`}
+              </Text>
+            </TouchableOpacity>
+            {showVisitPicker && (
+              <DateTimePicker
+                value={nextVisit ? new Date(nextVisit) : new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={onVisitDateChange}
+              />
+            )}
+
+            {/* Date de Vidange - Date Picker (only for new vehicles) */}
+            {!editingVehicle && (
+              <>
+                <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('oil_change_date')}</Text>
+                <TouchableOpacity style={styles.dateButton} onPress={() => setShowOilPicker(true)}>
+                  <Text style={[styles.dateButtonText, !oilChangeDate && styles.datePlaceholder]}>
+                    {oilChangeDate ? `🛢️ ${oilChangeDate}` : `🛢️ ${t('select_date')}`}
+                  </Text>
+                </TouchableOpacity>
+                {showOilPicker && (
+                  <DateTimePicker
+                    value={oilChangeDate ? new Date(oilChangeDate) : new Date()}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={onOilDateChange}
+                  />
+                )}
+              </>
+            )}
 
             <View style={[styles.modalActions, isRTL && styles.rowReverse]}>
               <TouchableOpacity
                 style={[styles.modalBtn, styles.cancelBtn]}
                 onPress={() => {
                   setModalVisible(false);
-                  setName('');
-                  setRegistration('');
-                  setMileage('');
-                  setNextVisit('');
+                  resetForm();
                 }}
               >
                 <Text style={styles.cancelBtnText}>{t('cancel')}</Text>
@@ -254,10 +384,36 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   cardName: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
     color: '#1A1A2E',
+    flex: 1,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  editBtn: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 8,
+    padding: 8,
+  },
+  editBtnText: {
+    fontSize: 16,
+  },
+  deleteBtn: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 8,
+    padding: 8,
+  },
+  deleteBtnText: {
+    fontSize: 16,
   },
   row: {
     flexDirection: 'row',
@@ -297,12 +453,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 20,
     padding: 24,
+    maxHeight: '85%',
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: '#1A1A2E',
-    marginBottom: 20,
+    marginBottom: 16,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 4,
+    marginTop: 4,
   },
   input: {
     backgroundColor: '#F5F7FA',
@@ -310,15 +474,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
-    marginBottom: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#E8ECF0',
     color: '#333',
   },
+  dateButton: {
+    backgroundColor: '#F5F7FA',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E8ECF0',
+  },
+  dateButtonText: {
+    fontSize: 15,
+    color: '#333',
+  },
+  datePlaceholder: {
+    color: '#999',
+  },
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: 12,
     gap: 12,
   },
   modalBtn: {

@@ -37,7 +37,11 @@ type TranslationKeys =
   | 'activation_title' | 'activation_subtitle' | 'activation_device_label'
   | 'activation_copy' | 'activation_key_label' | 'activation_unlock'
   | 'activation_device_error' | 'activation_key_empty' | 'activation_success'
-  | 'activation_invalid_key' | 'activation_copied';
+  | 'activation_invalid_key' | 'activation_copied'
+  | 'edit' | 'confirm_delete' | 'confirm_delete_msg' | 'advance' | 'remaining_amount'
+  | 'oil_change_date' | 'select_date' | 'no_data' | 'overdue' | 'technical_visit'
+  | 'vehicle_updated' | 'vehicle_deleted' | 'student_updated' | 'student_deleted'
+  | 'edit_vehicle' | 'edit_student' | 'yes' | 'no';
 
 type Translations = Record<Lang, Record<TranslationKeys, string>>;
 
@@ -164,6 +168,24 @@ export const translations: Translations = {
     activation_success: 'Activation réussie !',
     activation_invalid_key: 'Clé invalide.',
     activation_copied: 'ID de l\'appareil copié dans le presse-papiers.',
+    edit: 'Modifier',
+    confirm_delete: 'Confirmer la suppression',
+    confirm_delete_msg: 'Voulez-vous vraiment supprimer cet élément ?',
+    advance: 'Avance',
+    remaining_amount: 'Reste à payer',
+    oil_change_date: 'Date dernière vidange',
+    select_date: 'Sélectionner une date',
+    no_data: 'Aucune donnée.',
+    overdue: 'En retard',
+    technical_visit: 'Visite Technique',
+    vehicle_updated: 'Véhicule modifié.',
+    vehicle_deleted: 'Véhicule supprimé.',
+    student_updated: 'Élève modifié.',
+    student_deleted: 'Élève supprimé.',
+    edit_vehicle: 'Modifier le Véhicule',
+    edit_student: 'Modifier l\'Élève',
+    yes: 'Oui',
+    no: 'Non',
   },
   ar: {
     app_name: 'مدرستي',
@@ -287,6 +309,24 @@ export const translations: Translations = {
     activation_success: 'تم التفعيل بنجاح!',
     activation_invalid_key: 'مفتاح غير صالح.',
     activation_copied: 'تم نسخ معرف الجهاز إلى الحافظة.',
+    edit: 'تعديل',
+    confirm_delete: 'تأكيد الحذف',
+    confirm_delete_msg: 'هل تريد حذف هذا العنصر حقاً؟',
+    advance: 'السلفة',
+    remaining_amount: 'المبلغ المتبقي',
+    oil_change_date: 'تاريخ آخر تغيير زيت',
+    select_date: 'اختر تاريخاً',
+    no_data: 'لا توجد بيانات.',
+    overdue: 'متأخر',
+    technical_visit: 'المراقبة التقنية',
+    vehicle_updated: 'تم تعديل المركبة.',
+    vehicle_deleted: 'تم حذف المركبة.',
+    student_updated: 'تم تعديل التلميذ.',
+    student_deleted: 'تم حذف التلميذ.',
+    edit_vehicle: 'تعديل المركبة',
+    edit_student: 'تعديل التلميذ',
+    yes: 'نعم',
+    no: 'لا',
   },
 };
 

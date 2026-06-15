@@ -20,7 +20,7 @@ interface Props {
   onCancel: () => void;
 }
 
-export default function InputExpenseScreen({ onSaveSuccess, onCancel }: Props) {
+export function InputExpenseScreen({ onSaveSuccess, onCancel }: Props) {
   const { t, isRTL } = useLanguage();
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');

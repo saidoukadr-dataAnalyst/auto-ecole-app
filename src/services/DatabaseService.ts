@@ -108,16 +108,38 @@ export class DatabaseService {
     `);
   }
 
-  static async addStudent(name: string, phone: string, packagePrice: number): Promise<void> {
+  static async addStudent(name: string, phone: string, packagePrice: number, advance?: number): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.withTransactionAsync(async () => {
+      const result = await this.db!.runAsync(
+        'INSERT INTO Students (name, phone, package_price) VALUES (?, ?, ?)',
+        name, phone, packagePrice
+      );
+      if (advance && advance > 0) {
+        const cat = await this.db!.getFirstAsync<{id: number}>(
+          "SELECT id FROM Categories WHERE name = 'Paiement Forfait' AND type = 'INCOME'"
+        );
+        if (cat) {
+          await this.db!.runAsync(
+            'INSERT INTO Transactions (amount, type, category_id, student_id, description) VALUES (?, ?, ?, ?, ?)',
+            advance, 'INCOME', cat.id, result.lastInsertRowId, 'Avance sur forfait'
+          );
+        }
+      }
+    });
+  }
+
+  static async updateStudent(id: number, name: string, phone: string, packagePrice: number): Promise<void> {
     if (!this.db) await this.initDB();
     await this.db!.runAsync(
-      'INSERT INTO Students (name, phone, package_price) VALUES (?, ?, ?)',
-      name, phone, packagePrice
+      'UPDATE Students SET name = ?, phone = ?, package_price = ? WHERE id = ?',
+      name, phone, packagePrice, id
     );
   }
 
   static async deleteStudent(id: number): Promise<void> {
     if (!this.db) await this.initDB();
+    await this.db!.runAsync('DELETE FROM Transactions WHERE student_id = ?', id);
     await this.db!.runAsync('DELETE FROM Students WHERE id = ?', id);
   }
 
@@ -138,16 +160,35 @@ export class DatabaseService {
     `);
   }
 
-  static async addVehicle(name: string, registration: string, mileage: number, nextVisit: string): Promise<void> {
+  static async addVehicle(name: string, registration: string, mileage: number, nextVisit: string, oilChangeDate?: string): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.withTransactionAsync(async () => {
+      const result = await this.db!.runAsync(
+        'INSERT INTO Vehicles (name, registration, current_mileage, next_technical_visit) VALUES (?, ?, ?, ?)',
+        name, registration, mileage, nextVisit || null
+      );
+      if (oilChangeDate) {
+        const nextOilMileage = mileage + 10000;
+        await this.db!.runAsync(
+          'INSERT INTO OilChanges (vehicle_id, change_date, mileage_at_change, next_mileage) VALUES (?, ?, ?, ?)',
+          result.lastInsertRowId, oilChangeDate, mileage, nextOilMileage
+        );
+      }
+    });
+  }
+
+  static async updateVehicle(id: number, name: string, registration: string, mileage: number, nextVisit: string): Promise<void> {
     if (!this.db) await this.initDB();
     await this.db!.runAsync(
-      'INSERT INTO Vehicles (name, registration, current_mileage, next_technical_visit) VALUES (?, ?, ?, ?)',
-      name, registration, mileage, nextVisit
+      'UPDATE Vehicles SET name = ?, registration = ?, current_mileage = ?, next_technical_visit = ? WHERE id = ?',
+      name, registration, mileage, nextVisit || null, id
     );
   }
 
   static async deleteVehicle(id: number): Promise<void> {
     if (!this.db) await this.initDB();
+    await this.db!.runAsync('DELETE FROM OilChanges WHERE vehicle_id = ?', id);
+    await this.db!.runAsync('DELETE FROM Transactions WHERE vehicle_id = ?', id);
     await this.db!.runAsync('DELETE FROM Vehicles WHERE id = ?', id);
   }
 

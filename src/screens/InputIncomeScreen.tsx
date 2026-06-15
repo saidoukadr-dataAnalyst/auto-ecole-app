@@ -19,7 +19,7 @@ interface Props {
   onCancel: () => void;
 }
 
-export default function InputIncomeScreen({ onSaveSuccess, onCancel }: Props) {
+export function InputIncomeScreen({ onSaveSuccess, onCancel }: Props) {
   const { t, isRTL } = useLanguage();
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');

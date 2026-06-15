@@ -29,7 +29,8 @@
             "enableProguardInReleaseBuilds": true
           }
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ]
   }
 }
