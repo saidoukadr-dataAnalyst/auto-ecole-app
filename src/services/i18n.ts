@@ -45,7 +45,8 @@ type TranslationKeys =
   | 'vehicle' | 'transactions' | 'pin_storage_error' | 'recovery_success' | 'recovery_invalid'
   | 'staff' | 'menu_staff' | 'add_staff' | 'edit_staff' | 'role' | 'salary' | 'base_salary' | 'no_staff' | 'staff_required' | 'staff_saved' | 'staff_deleted' | 'phone_optional'
   | 'kpi_net' | 'no_activity' | 'security' | 'change_pin' | 'change_pin_desc'
-  | 'fuel_liters' | 'fuel_liters_required' | 'consumption';
+  | 'fuel_liters' | 'fuel_liters_required' | 'consumption'
+  | 'income_label' | 'expense_label' | 'profit_label';
 
 type Translations = Record<Lang, Record<TranslationKeys, string>>;
 
@@ -214,7 +215,10 @@ export const translations: Translations = {
     phone_optional: 'Téléphone (Optionnel)',
     fuel_liters: 'Quantité en Litres (L)',
     fuel_liters_required: 'La quantité en litres est obligatoire',
-    consumption: 'Consommation'
+    consumption: 'Consommation',
+    income_label: 'Entrées',
+    expense_label: 'Sorties',
+    profit_label: 'Bénéfice'
   },
   ar: {
     app_name: 'مدرستي',
@@ -380,7 +384,10 @@ export const translations: Translations = {
     change_pin_desc: 'تعديل الرمز السري الخاص بك',
     fuel_liters: 'الكمية باللتر (L)',
     fuel_liters_required: 'الكمية باللتر إلزامية',
-    consumption: 'الاستهلاك'
+    consumption: 'الاستهلاك',
+    income_label: 'مداخيل',
+    expense_label: 'مصاريف',
+    profit_label: 'الأرباح'
   },
 };
 

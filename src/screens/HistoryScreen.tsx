@@ -136,15 +136,15 @@ export function HistoryScreen() {
         <Text style={[styles.sectionTitle, isRTL && styles.textRTL]}>{section.title}</Text>
         <View style={[styles.sectionStats, isRTL && styles.rowRTL]}>
           <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Entrées</Text>
+            <Text style={styles.statLabel}>{t('income_label') || 'Entrées'}</Text>
             <Text style={[styles.statValue, { color: '#16a34a' }]}>+{section.income.toFixed(0)} DH</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Sorties</Text>
+            <Text style={styles.statLabel}>{t('expense_label') || 'Sorties'}</Text>
             <Text style={[styles.statValue, { color: '#dc2626' }]}>-{section.expense.toFixed(0)} DH</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Bénéfice</Text>
+            <Text style={styles.statLabel}>{t('profit_label') || 'Bénéfice'}</Text>
             <Text style={[styles.statValue, { color: net >= 0 ? '#2563eb' : '#dc2626' }]}>
               {net >= 0 ? '+' : ''}{net.toFixed(0)} DH
             </Text>
