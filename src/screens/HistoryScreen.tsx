@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, SectionList, ActivityIndicator, RefreshControl } from 'react-native';
 import { DatabaseService } from '../services/DatabaseService';
 import { useLanguage } from '../services/i18n';
 
@@ -12,23 +12,64 @@ interface Transaction {
   category_name: string;
 }
 
+interface MonthSection {
+  title: string;
+  income: number;
+  expense: number;
+  data: Transaction[];
+}
+
 export function HistoryScreen() {
   const { t, isRTL } = useLanguage();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [sections, setSections] = useState<MonthSection[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
+
+  const groupTransactionsByMonth = (data: Transaction[]) => {
+    const groups: { [key: string]: MonthSection } = {};
+    
+    data.forEach((t) => {
+      const dateObj = new Date(t.date);
+      // Format "Mois Année" (ex: Juin 2026)
+      const monthKey = dateObj.toLocaleDateString(isRTL ? 'ar' : 'fr-FR', {
+        month: 'long',
+        year: 'numeric'
+      });
+
+      if (!groups[monthKey]) {
+        groups[monthKey] = {
+          title: monthKey.charAt(0).toUpperCase() + monthKey.slice(1),
+          income: 0,
+          expense: 0,
+          data: []
+        };
+      }
+
+      groups[monthKey].data.push(t);
+      if (t.type === 'INCOME') {
+        groups[monthKey].income += t.amount;
+      } else {
+        groups[monthKey].expense += t.amount;
+      }
+    });
+
+    return Object.values(groups);
+  };
 
   const loadTransactions = useCallback(async () => {
     try {
       const data = await DatabaseService.getTransactions();
-      setTransactions(data);
+      setTotalCount(data.length);
+      const groupedData = groupTransactionsByMonth(data);
+      setSections(groupedData);
     } catch {
-      setTransactions([]);
+      setSections([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [isRTL]);
 
   useEffect(() => {
     loadTransactions();
@@ -88,6 +129,31 @@ export function HistoryScreen() {
     );
   };
 
+  const renderSectionHeader = ({ section }: { section: MonthSection }) => {
+    const net = section.income - section.expense;
+    return (
+      <View style={styles.sectionHeaderContainer}>
+        <Text style={[styles.sectionTitle, isRTL && styles.textRTL]}>{section.title}</Text>
+        <View style={[styles.sectionStats, isRTL && styles.rowRTL]}>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Entrées</Text>
+            <Text style={[styles.statValue, { color: '#16a34a' }]}>+{section.income.toFixed(0)} DH</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Sorties</Text>
+            <Text style={[styles.statValue, { color: '#dc2626' }]}>-{section.expense.toFixed(0)} DH</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Bénéfice</Text>
+            <Text style={[styles.statValue, { color: net >= 0 ? '#2563eb' : '#dc2626' }]}>
+              {net >= 0 ? '+' : ''}{net.toFixed(0)} DH
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   const renderEmpty = () => {
     if (loading) return null;
     return (
@@ -111,20 +177,22 @@ export function HistoryScreen() {
       <View style={[styles.header, isRTL && styles.headerRTL]}>
         <Text style={[styles.headerTitle, isRTL && styles.textRTL]}>{t('history')}</Text>
         <Text style={[styles.headerSubtitle, isRTL && styles.textRTL]}>
-          {transactions.length} {t('transactions') ?? 'transactions'}
+          {totalCount} {t('transactions') ?? 'transactions'}
         </Text>
       </View>
 
-      <FlatList
-        data={transactions}
+      <SectionList
+        sections={sections}
         renderItem={renderTransaction}
+        renderSectionHeader={renderSectionHeader}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={[
           styles.listContent,
-          transactions.length === 0 && styles.emptyList,
+          sections.length === 0 && styles.emptyList,
         ]}
         ListEmptyComponent={renderEmpty}
         showsVerticalScrollIndicator={false}
+        stickySectionHeadersEnabled={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -213,47 +281,78 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 4,
   },
   rowRTL: {
     flexDirection: 'row-reverse',
   },
   categoryName: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#1e293b',
+    color: '#0f172a',
     flex: 1,
     marginRight: 8,
   },
   amount: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
   },
   description: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#64748b',
-    marginTop: 3,
+    marginBottom: 6,
   },
   date: {
     fontSize: 12,
     color: '#94a3b8',
-    marginTop: 4,
   },
   textRTL: {
     textAlign: 'right',
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 60,
+    justifyContent: 'center',
+    paddingTop: 60,
   },
   emptyIcon: {
     fontSize: 48,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   emptyText: {
     fontSize: 16,
     color: '#94a3b8',
-    textAlign: 'center',
+    fontWeight: '500',
+  },
+  sectionHeaderContainer: {
+    marginTop: 16,
+    marginBottom: 8,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 12,
+    padding: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 8,
+  },
+  sectionStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    padding: 10,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#64748b',
+    marginBottom: 2,
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
