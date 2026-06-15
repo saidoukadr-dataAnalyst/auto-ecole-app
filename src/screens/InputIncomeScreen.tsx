@@ -39,6 +39,9 @@ export function InputIncomeScreen({ onSaveSuccess, onCancel }: Props) {
         ]);
         setCategories(cats);
         setStudents(studs);
+        if (cats && cats.length > 0) {
+          setSelectedCategoryId(cats[0].id);
+        }
       } catch {
         // silent
       }
@@ -97,28 +100,6 @@ export function InputIncomeScreen({ onSaveSuccess, onCancel }: Props) {
             keyboardType="numeric"
           />
           <Text style={styles.currency}>DH</Text>
-        </View>
-      </View>
-
-      {/* Categories */}
-      <View style={styles.section}>
-        <Text style={[styles.label, isRTL && styles.textRTL]}>{t('category')}</Text>
-        <View style={[styles.chipContainer, isRTL && styles.chipContainerRTL]}>
-          {categories.map((cat) => {
-            const selected = selectedCategoryId === cat.id;
-            return (
-              <TouchableOpacity
-                key={cat.id}
-                style={[styles.chip, selected && styles.chipSelectedIncome]}
-                onPress={() => setSelectedCategoryId(cat.id)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.chipText, selected && styles.chipTextSelectedIncome]}>
-                  {cat.name}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
         </View>
       </View>
 

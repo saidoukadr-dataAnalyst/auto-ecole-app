@@ -398,6 +398,6 @@ export class DatabaseService {
 
   static async getCategories(type: 'INCOME' | 'EXPENSE'): Promise<any[]> {
     if (!this.db) await this.initDB();
-    return await this.db!.getAllAsync('SELECT * FROM Categories WHERE type = ?', [type]);
+    return await this.db!.getAllAsync('SELECT * FROM Categories WHERE type = ?', type);
   }
 }
