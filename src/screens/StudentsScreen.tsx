@@ -110,7 +110,11 @@ export function StudentsScreen() {
       showToast(t('invalid_amount'));
       return;
     }
-    if (advanceVal > priceVal) {
+    if (editingStudent && advanceVal > Math.max(0, priceVal - (editingStudent.paid_amount || 0))) {
+      showToast(t('invalid_amount'));
+      return;
+    }
+    if (!editingStudent && advanceVal > priceVal) {
       showToast(t('invalid_amount'));
       return;
     }
@@ -119,6 +123,11 @@ export function StudentsScreen() {
     try {
       if (editingStudent) {
         await DatabaseService.updateStudent(editingStudent.id, name.trim(), phone.trim(), priceVal);
+        if (advanceVal > 0) {
+          const cats = await DatabaseService.getCategories('INCOME');
+          const catId = cats.length > 0 ? cats[0].id : 1;
+          await DatabaseService.addIncome(advanceVal, catId, editingStudent.id, 'Avance sur forfait');
+        }
         showToast(t('student_updated'));
       } else {
         await DatabaseService.addStudent(name.trim(), phone.trim(), priceVal, advanceVal > 0 ? advanceVal : undefined);
@@ -281,28 +290,34 @@ export function StudentsScreen() {
               placeholderTextColor="#999"
             />
 
-            {/* Avance (only for new students) */}
-            {!editingStudent && (
-              <>
-                <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('advance')} (DH)</Text>
-                <TextInput
-                  style={[styles.input, isRTL && styles.textRight]}
-                  placeholder="0"
-                  value={advance}
-                  onChangeText={setAdvance}
-                  keyboardType="numeric"
-                  placeholderTextColor="#999"
-                />
+            {/* Avance (works for both new and editing) */}
+            <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>
+              {editingStudent ? 'Nouvelle Avance (Optionnel)' : t('advance')} (DH)
+            </Text>
+            <TextInput
+              style={[styles.input, isRTL && styles.textRight]}
+              placeholder="0"
+              value={advance}
+              onChangeText={setAdvance}
+              keyboardType="numeric"
+              placeholderTextColor="#999"
+            />
 
-                {/* Show remaining */}
-                {packagePrice ? (
-                  <View style={styles.remainingBox}>
-                    <Text style={styles.remainingLabel}>{t('remaining_amount')}</Text>
-                    <Text style={styles.remainingValue}>{formRemaining().toFixed(0)} DH</Text>
-                  </View>
-                ) : null}
-              </>
-            )}
+            {/* Show remaining */}
+            <View style={styles.remainingBox}>
+              {editingStudent && (
+                <Text style={styles.remainingLabel}>Total déjà payé : {editingStudent?.paid_amount?.toFixed(0) || 0} DH</Text>
+              )}
+              <Text style={styles.remainingValue}>
+                Reste à payer : {
+                  Math.max(0, 
+                    (parseFloat(packagePrice) || 0) - 
+                    (editingStudent ? (editingStudent.paid_amount || 0) : 0) - 
+                    (parseFloat(advance) || 0)
+                  ).toFixed(0)
+                } DH
+              </Text>
+            </View>
 
             <View style={[styles.modalActions, isRTL && styles.rowReverse]}>
               <TouchableOpacity

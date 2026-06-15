@@ -67,14 +67,20 @@ export function InputExpenseScreen({ onSaveSuccess, onCancel }: Props) {
       setSelectedVehicleId(null);
       setMileage('');
       setFuelLiters('');
+    } else if (vehicles.length === 0) {
+      showToast('Veuillez d\'abord ajouter vos véhicules dans le menu');
     }
+    
     if (!isFuel) {
       setFuelLiters('');
     }
+    
     if (!isStaffRelated) {
       setSelectedStaffId(null);
+    } else if (staffList.length === 0) {
+      showToast('Veuillez d\'abord ajouter votre personnel dans le menu');
     }
-  }, [isVehicleRelated, isStaffRelated]);
+  }, [isVehicleRelated, isStaffRelated, isFuel, vehicles.length, staffList.length]);
 
   const validate = (): boolean => {
     const parsed = parseFloat(amount);

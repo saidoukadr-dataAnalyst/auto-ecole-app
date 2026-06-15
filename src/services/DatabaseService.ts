@@ -80,7 +80,6 @@ export class DatabaseService {
         next_mileage INTEGER NOT NULL,
         FOREIGN KEY (vehicle_id) REFERENCES Vehicles (id)
       );
-      );
     `);
 
     // Migrations pour ajouter les colonnes liées au personnel si elles n'existent pas

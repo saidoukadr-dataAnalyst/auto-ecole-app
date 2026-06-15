@@ -1,6 +1,6 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { DatabaseService } from './DatabaseService';
 import * as SQLite from 'expo-sqlite';
 import { Platform } from 'react-native';
@@ -102,12 +102,16 @@ export class ExportService {
       csvString += `${t.id},"${t.date || ''}",${t.amount},${t.type === 'INCOME' ? 'Entrée' : 'Sortie'},"${cat}","${desc}"\n`;
     });
 
+    if (!FileSystem.documentDirectory) throw new Error("Document directory not available");
+
     const fileName = `Export_AutoEcole_${new Date().toISOString().split('T')[0]}.csv`;
     const fileUri = FileSystem.documentDirectory + fileName;
-    await FileSystem.writeAsStringAsync(fileUri, csvString);
+    await FileSystem.writeAsStringAsync(fileUri, csvString, { encoding: FileSystem.EncodingType.UTF8 });
 
     if (await Sharing.isAvailableAsync()) {
       await Sharing.shareAsync(fileUri, { mimeType: 'text/csv' });
+    } else {
+      throw new Error("Le partage n'est pas disponible sur cet appareil.");
     }
   }
 
@@ -116,19 +120,20 @@ export class ExportService {
    * Appelé par SettingsScreen via ExportService.backupDatabase()
    */
   static async backupDatabase(): Promise<void> {
+    if (!FileSystem.documentDirectory) throw new Error("Document directory not available");
+
     const possiblePaths: string[] = [];
     
-    if (FileSystem.documentDirectory) {
-      // 1. Classic iOS/Expo path
-      possiblePaths.push(FileSystem.documentDirectory + 'SQLite/autoecole_finance.db');
-      // 2. Direct documentDirectory fallback
-      possiblePaths.push(FileSystem.documentDirectory + 'autoecole_finance.db');
-      
-      // 3. Android specific path: usually /data/user/0/com.../databases/
-      if (Platform.OS === 'android') {
-        const androidDbPath = FileSystem.documentDirectory.replace('files/', 'databases/') + 'autoecole_finance.db';
-        possiblePaths.push(androidDbPath);
-      }
+    // 1. Classic iOS/Expo path
+    possiblePaths.push(FileSystem.documentDirectory + 'SQLite/autoecole_finance.db');
+    // 2. Direct documentDirectory fallback
+    possiblePaths.push(FileSystem.documentDirectory + 'autoecole_finance.db');
+    
+    // 3. Android specific paths
+    if (Platform.OS === 'android') {
+      const baseDbPath = FileSystem.documentDirectory.replace('files/', 'databases/');
+      possiblePaths.push(baseDbPath + 'autoecole_finance.db');
+      possiblePaths.push(baseDbPath + 'SQLite/autoecole_finance.db');
     }
 
     let actualDbUri: string | null = null;
@@ -146,6 +151,7 @@ export class ExportService {
     }
 
     if (!actualDbUri) {
+      // Si la copie échoue, on lève une erreur claire.
       throw new Error("Base de données introuvable sur cet appareil.");
     }
 
@@ -157,6 +163,8 @@ export class ExportService {
         dialogTitle: 'Sauvegarder la base de données',
         mimeType: 'application/x-sqlite3'
       });
+    } else {
+      throw new Error("Le partage n'est pas disponible sur cet appareil.");
     }
   }
 }

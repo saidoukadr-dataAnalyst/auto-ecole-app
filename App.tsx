@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 
 import { SecurityService } from './src/services/SecurityService';
 import { DatabaseService } from './src/services/DatabaseService';
@@ -79,6 +80,7 @@ export default function App() {
 
   return (
     <LanguageProvider>
+      <StatusBar style="dark" translucent={false} />
       {content}
     </LanguageProvider>
   );
