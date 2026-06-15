@@ -16,6 +16,7 @@ import { InputIncomeScreen } from './src/screens/InputIncomeScreen';
 
 import { StudentsScreen } from './src/screens/StudentsScreen';
 import { VehiclesScreen } from './src/screens/VehiclesScreen';
+import { StaffScreen } from './src/screens/StaffScreen';
 import { HistoryScreen } from './src/screens/HistoryScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 
@@ -59,9 +60,10 @@ export default function App() {
       <NavigationContainer>
         <Stack.Navigator initialRouteName="Dashboard">
           <Stack.Screen name="Dashboard" component={DashboardScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="Students" component={StudentsScreen} options={{ title: 'Gestion des Élèves' }} />
-          <Stack.Screen name="Vehicles" component={VehiclesScreen} options={{ title: 'Parc Automobile' }} />
-          <Stack.Screen name="History" component={HistoryScreen} options={{ title: 'Historique Complet' }} />
+          <Stack.Screen name="Students" component={StudentsScreen} options={{ title: 'Élèves' }} />
+          <Stack.Screen name="Vehicles" component={VehiclesScreen} options={{ title: 'Véhicules' }} />
+          <Stack.Screen name="Staff" component={StaffScreen} options={{ title: 'Personnel' }} />
+          <Stack.Screen name="History" component={HistoryScreen} options={{ title: 'Historique' }} />
           <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Paramètres & Export' }} />
           
           <Stack.Screen name="InputExpense" options={{ title: 'Nouvelle Dépense', presentation: 'modal' }}>

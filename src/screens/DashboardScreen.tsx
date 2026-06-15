@@ -21,7 +21,9 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
   const [period, setPeriod] = useState<'TODAY' | 'WEEK' | 'MONTH' | 'YEAR'>('MONTH');
   const [kpi, setKpi] = useState({ income: 0, expense: 0, net: 0 });
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [showFabMenu, setShowFabMenu] = useState(false);
+  const [showAlertsModal, setShowAlertsModal] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
@@ -63,6 +65,13 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
       console.log('Error loading oil change alerts');
     }
 
+    try {
+      const activities = await DatabaseService.getTodayTransactions();
+      setRecentActivities(activities);
+    } catch (e) {
+      console.log('Error loading today transactions');
+    }
+
     setAlerts(newAlerts);
   };
 
@@ -76,6 +85,7 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
   const menuItems = [
     { screen: 'Students', icon: '🎓', label: t('menu_students') },
     { screen: 'Vehicles', icon: '🚘', label: t('menu_vehicles') },
+    { screen: 'Staff', icon: '👥', label: t('menu_staff') },
     { screen: 'History', icon: '📋', label: t('menu_history') },
     { screen: 'Settings', icon: '⚙️', label: t('menu_settings') },
   ];
@@ -85,12 +95,22 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
       {/* HEADER */}
       <View style={[styles.header, isRTL && styles.rtlRow]}>
         <Text style={styles.headerTitle}>{t('app_name')}</Text>
-        <TouchableOpacity
-          style={styles.langToggle}
-          onPress={() => setLang(lang === 'fr' ? 'ar' : 'fr')}
-        >
-          <Text style={styles.langToggleText}>FR | ع</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <TouchableOpacity style={styles.bellIcon} onPress={() => setShowAlertsModal(true)}>
+            <Text style={styles.bellText}>🔔</Text>
+            {alerts.length > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{alerts.length}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.langToggle}
+            onPress={() => setLang(lang === 'fr' ? 'ar' : 'fr')}
+          >
+            <Text style={styles.langToggleText}>FR | ع</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* PERIOD FILTER */}
@@ -115,24 +135,6 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* ALERT BANNERS */}
-        {alerts.length > 0 && (
-          <View style={styles.alertsContainer}>
-            {alerts.map((alert) => (
-              <View
-                key={alert.id}
-                style={[
-                  styles.alertBanner,
-                  alert.level === 'DANGER' ? styles.alertDanger : styles.alertWarning,
-                  isRTL && styles.rtlRow,
-                ]}
-              >
-                <Text style={[styles.alertText, isRTL && styles.rtlText]}>{alert.message}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
         {/* KPI CARDS */}
         <View style={styles.kpiGrid}>
           <View style={[styles.kpiCard, styles.kpiIncome]}>
@@ -172,13 +174,30 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
         {/* RECENT ACTIVITY */}
         <View style={styles.recentActivityContainer}>
           <View style={[styles.sectionHeader, isRTL && styles.rtlRow]}>
-            <Text style={styles.sectionTitle}>{t('recent_activity')}</Text>
+            <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>{t('recent_activity') || 'Activités récentes (Aujourd\'hui)'}</Text>
             <TouchableOpacity onPress={() => navigation.navigate('History')}>
-              <Text style={styles.linkText}>{t('see_all')}</Text>
+              <Text style={styles.linkText}>{t('view_all')}</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.activityList}>
-            <Text style={styles.emptyActivityText}>{t('no_recent_transactions')}</Text>
+            {recentActivities.length === 0 ? (
+              <Text style={[styles.emptyActivityText, isRTL && styles.rtlText]}>{t('no_activity') || 'Aucune transaction aujourd\'hui'}</Text>
+            ) : (
+              recentActivities.map((act) => (
+                <View key={act.id} style={[styles.activityItem, isRTL && styles.rtlRow]}>
+                  <View style={[styles.activityIconWrapper, act.type === 'INCOME' ? styles.bgGreenLight : styles.bgRedLight]}>
+                    <Text style={styles.activityIcon}>{act.type === 'INCOME' ? '↓' : '↑'}</Text>
+                  </View>
+                  <View style={[styles.activityDetails, isRTL && styles.rtlDetails]}>
+                    <Text style={[styles.activityTitle, isRTL && styles.rtlText]}>{act.category_name}</Text>
+                    <Text style={[styles.activitySubtitle, isRTL && styles.rtlText]}>{act.description || '—'}</Text>
+                  </View>
+                  <Text style={[styles.activityAmount, act.type === 'INCOME' ? styles.textGreen : styles.textRed]}>
+                    {act.type === 'INCOME' ? '+' : '-'}{act.amount} DH
+                  </Text>
+                </View>
+              ))
+            )}
           </View>
         </View>
 
@@ -237,6 +256,47 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* ALERTS MODAL */}
+      <Modal
+        visible={showAlertsModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowAlertsModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowAlertsModal(false)}
+        >
+          <View style={styles.alertsModalContent}>
+            <View style={[styles.alertsModalHeader, isRTL && styles.rtlRow]}>
+              <Text style={styles.alertsModalTitle}>🔔 Alertes ({alerts.length})</Text>
+              <TouchableOpacity onPress={() => setShowAlertsModal(false)}>
+                <Text style={styles.closeAlertsBtn}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.alertsModalScroll}>
+              {alerts.length === 0 ? (
+                <Text style={styles.noAlertsText}>Aucune alerte pour le moment.</Text>
+              ) : (
+                alerts.map((alert) => (
+                  <View
+                    key={alert.id}
+                    style={[
+                      styles.alertBanner,
+                      alert.level === 'DANGER' ? styles.alertDanger : styles.alertWarning,
+                      isRTL && styles.rtlRow,
+                    ]}
+                  >
+                    <Text style={[styles.alertText, isRTL && styles.rtlText]}>{alert.message}</Text>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -258,11 +318,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    paddingTop: 50,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  bellIcon: {
+    position: 'relative',
+    padding: 4,
+  },
+  bellText: {
+    fontSize: 22,
+  },
+  badge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#ef4444',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   headerTitle: {
     fontSize: 22,
@@ -413,7 +500,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    paddingBottom: 12,
   },
   sectionTitle: {
     fontSize: 18,
@@ -432,6 +519,34 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontStyle: 'italic',
   },
+  activityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+  },
+  activityIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  bgGreenLight: { backgroundColor: '#dcfce7' },
+  bgRedLight: { backgroundColor: '#fee2e2' },
+  activityIcon: { fontSize: 18, fontWeight: 'bold' },
+  activityDetails: { flex: 1 },
+  rtlDetails: { marginRight: 12, marginLeft: 0 },
+  activityTitle: { fontSize: 15, fontWeight: '600', color: '#1e293b' },
+  activitySubtitle: { fontSize: 12, color: '#64748b', marginTop: 2 },
+  activityAmount: { fontSize: 16, fontWeight: '700' },
+  textGreen: { color: '#16a34a' },
+  textRed: { color: '#dc2626' },
 
   // FAB
   fab: {
@@ -491,5 +606,45 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
     color: '#ef4444',
+  },
+  alertsModalContent: {
+    backgroundColor: '#fff',
+    width: '90%',
+    maxHeight: '80%',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
+    alignSelf: 'center',
+    marginTop: 'auto',
+    marginBottom: 'auto',
+  },
+  alertsModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  alertsModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  closeAlertsBtn: {
+    fontSize: 20,
+    color: '#94a3b8',
+    padding: 4,
+  },
+  alertsModalScroll: {
+    maxHeight: '100%',
+  },
+  noAlertsText: {
+    textAlign: 'center',
+    color: '#64748b',
+    fontSize: 15,
+    marginTop: 20,
+    marginBottom: 20,
   },
 });

@@ -25,6 +25,7 @@ export function InputIncomeScreen({ onSaveSuccess, onCancel }: Props) {
   const [description, setDescription] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -126,8 +127,15 @@ export function InputIncomeScreen({ onSaveSuccess, onCancel }: Props) {
         <Text style={[styles.label, isRTL && styles.textRTL]}>
           {t('student')} <Text style={styles.optional}>({t('optional')})</Text>
         </Text>
+        <TextInput
+          style={[styles.searchInput, isRTL && styles.textRTL]}
+          placeholder={t('search') ?? 'Rechercher un élève...'}
+          placeholderTextColor="#94a3b8"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
         <View style={[styles.chipContainer, isRTL && styles.chipContainerRTL]}>
-          {students.map((s) => {
+          {students.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())).map((s) => {
             const selected = selectedStudentId === s.id;
             return (
               <TouchableOpacity
@@ -228,6 +236,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#94a3b8',
     marginLeft: 8,
+  },
+  searchInput: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 15,
+    marginBottom: 12,
+    color: '#1e293b',
   },
   chipContainer: {
     flexDirection: 'row',

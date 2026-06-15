@@ -42,7 +42,10 @@ type TranslationKeys =
   | 'oil_change_date' | 'select_date' | 'no_data' | 'overdue' | 'technical_visit'
   | 'vehicle_updated' | 'vehicle_deleted' | 'student_updated' | 'student_deleted'
   | 'edit_vehicle' | 'edit_student' | 'yes' | 'no'
-  | 'vehicle' | 'transactions' | 'pin_storage_error' | 'recovery_success' | 'recovery_invalid';
+  | 'vehicle' | 'transactions' | 'pin_storage_error' | 'recovery_success' | 'recovery_invalid'
+  | 'staff' | 'menu_staff' | 'add_staff' | 'edit_staff' | 'role' | 'salary' | 'base_salary' | 'no_staff' | 'staff_required' | 'staff_saved' | 'staff_deleted' | 'phone_optional'
+  | 'kpi_net' | 'no_activity' | 'security' | 'change_pin' | 'change_pin_desc'
+  | 'fuel_liters' | 'fuel_liters_required' | 'consumption';
 
 type Translations = Record<Lang, Record<TranslationKeys, string>>;
 
@@ -192,6 +195,26 @@ export const translations: Translations = {
     pin_storage_error: 'Erreur d\'accès au stockage.',
     recovery_success: 'Restauration réussie !',
     recovery_invalid: 'Clé de restauration invalide.',
+    kpi_net: 'Bénéfice',
+    no_activity: 'Aucune transaction aujourd\'hui.',
+    security: 'Sécurité',
+    change_pin: 'Changer le code PIN',
+    change_pin_desc: 'Modifier votre code PIN d\'accès',
+    staff: 'Personnel',
+    menu_staff: 'Personnel',
+    add_staff: 'Ajouter Personnel',
+    edit_staff: 'Modifier Personnel',
+    role: 'Rôle (ex: Moniteur, Secrétaire)',
+    salary: 'Salaire',
+    base_salary: 'Salaire de base',
+    no_staff: 'Aucun personnel enregistré',
+    staff_required: 'Veuillez sélectionner un membre du personnel',
+    staff_saved: 'Membre du personnel enregistré avec succès',
+    staff_deleted: 'Membre du personnel supprimé',
+    phone_optional: 'Téléphone (Optionnel)',
+    fuel_liters: 'Quantité en Litres (L)',
+    fuel_liters_required: 'La quantité en litres est obligatoire',
+    consumption: 'Consommation'
   },
   ar: {
     app_name: 'مدرستي',
@@ -338,6 +361,26 @@ export const translations: Translations = {
     pin_storage_error: 'خطأ في الوصول إلى التخزين.',
     recovery_success: 'تم الاسترداد بنجاح!',
     recovery_invalid: 'مفتاح الاسترداد غير صالح.',
+    staff: 'الموظفين',
+    menu_staff: 'الموظفين',
+    add_staff: 'إضافة موظف',
+    edit_staff: 'تعديل موظف',
+    role: 'المنصب (مثال: مدرب، سكرتيرة)',
+    salary: 'الراتب',
+    base_salary: 'الراتب الأساسي',
+    no_staff: 'لا يوجد موظفين',
+    staff_required: 'يرجى اختيار موظف',
+    staff_saved: 'تم حفظ الموظف بنجاح',
+    staff_deleted: 'تم حذف الموظف',
+    phone_optional: 'رقم الهاتف (اختياري)',
+    kpi_net: 'الربح',
+    no_activity: 'لا توجد معاملات اليوم.',
+    security: 'حماية',
+    change_pin: 'تغيير الرمز السري',
+    change_pin_desc: 'تعديل الرمز السري الخاص بك',
+    fuel_liters: 'الكمية باللتر (L)',
+    fuel_liters_required: 'الكمية باللتر إلزامية',
+    consumption: 'الاستهلاك'
   },
 };
 

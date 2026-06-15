@@ -3,6 +3,7 @@ import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 import { DatabaseService } from './DatabaseService';
 import * as SQLite from 'expo-sqlite';
+import { Platform } from 'react-native';
 
 export class ExportService {
 
@@ -103,7 +104,7 @@ export class ExportService {
 
     const fileName = `Export_AutoEcole_${new Date().toISOString().split('T')[0]}.csv`;
     const fileUri = FileSystem.documentDirectory + fileName;
-    await FileSystem.writeAsStringAsync(fileUri, csvString, { encoding: FileSystem.EncodingType.UTF8 });
+    await FileSystem.writeAsStringAsync(fileUri, csvString);
 
     if (await Sharing.isAvailableAsync()) {
       await Sharing.shareAsync(fileUri, { mimeType: 'text/csv' });
@@ -115,32 +116,41 @@ export class ExportService {
    * Appelé par SettingsScreen via ExportService.backupDatabase()
    */
   static async backupDatabase(): Promise<void> {
-    // expo-sqlite v16 stocke la DB dans documentDirectory/SQLite/
-    const dbDir = FileSystem.documentDirectory + 'SQLite/';
-    const dbFileUri = dbDir + 'autoecole_finance.db';
+    const possiblePaths: string[] = [];
+    
+    if (FileSystem.documentDirectory) {
+      // 1. Classic iOS/Expo path
+      possiblePaths.push(FileSystem.documentDirectory + 'SQLite/autoecole_finance.db');
+      // 2. Direct documentDirectory fallback
+      possiblePaths.push(FileSystem.documentDirectory + 'autoecole_finance.db');
+      
+      // 3. Android specific path: usually /data/user/0/com.../databases/
+      if (Platform.OS === 'android') {
+        const androidDbPath = FileSystem.documentDirectory.replace('files/', 'databases/') + 'autoecole_finance.db';
+        possiblePaths.push(androidDbPath);
+      }
+    }
 
-    const fileInfo = await FileSystem.getInfoAsync(dbFileUri);
-    if (!fileInfo.exists) {
-      // Fallback: essayer directement dans documentDirectory
-      const altUri = FileSystem.documentDirectory + 'autoecole_finance.db';
-      const altInfo = await FileSystem.getInfoAsync(altUri);
-      if (!altInfo.exists) {
-        throw new Error("Base de données introuvable.");
+    let actualDbUri: string | null = null;
+
+    for (const path of possiblePaths) {
+      try {
+        const info = await FileSystem.getInfoAsync(path);
+        if (info.exists) {
+          actualDbUri = path;
+          break;
+        }
+      } catch (e) {
+        // silent
       }
-      // Utiliser le chemin alternatif
-      const backupUri = FileSystem.documentDirectory + `Backup_AutoEcole_${new Date().toISOString().split('T')[0]}.db`;
-      await FileSystem.copyAsync({ from: altUri, to: backupUri });
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(backupUri, {
-          dialogTitle: 'Sauvegarder la base de données',
-          mimeType: 'application/x-sqlite3'
-        });
-      }
-      return;
+    }
+
+    if (!actualDbUri) {
+      throw new Error("Base de données introuvable sur cet appareil.");
     }
 
     const backupUri = FileSystem.documentDirectory + `Backup_AutoEcole_${new Date().toISOString().split('T')[0]}.db`;
-    await FileSystem.copyAsync({ from: dbFileUri, to: backupUri });
+    await FileSystem.copyAsync({ from: actualDbUri, to: backupUri });
 
     if (await Sharing.isAvailableAsync()) {
       await Sharing.shareAsync(backupUri, {

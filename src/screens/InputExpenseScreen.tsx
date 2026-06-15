@@ -8,11 +8,18 @@ interface Category {
   id: number;
   name: string;
   is_vehicle_related?: number;
+  is_staff_related?: number;
 }
 
 interface Vehicle {
   id: number;
   name: string;
+}
+
+interface Staff {
+  id: number;
+  name: string;
+  role: string;
 }
 
 interface Props {
@@ -25,14 +32,19 @@ export function InputExpenseScreen({ onSaveSuccess, onCancel }: Props) {
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [mileage, setMileage] = useState('');
+  const [fuelLiters, setFuelLiters] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [staffList, setStaffList] = useState<Staff[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
+  const [selectedStaffId, setSelectedStaffId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
   const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
   const isVehicleRelated = selectedCategory?.is_vehicle_related === 1;
+  const isStaffRelated = selectedCategory?.is_staff_related === 1;
+  const isFuel = selectedCategory?.name === 'Carburant';
 
   useEffect(() => {
     const load = async () => {
@@ -41,6 +53,8 @@ export function InputExpenseScreen({ onSaveSuccess, onCancel }: Props) {
         setCategories(cats);
         const vehs = await DatabaseService.getVehicles();
         setVehicles(vehs);
+        const stf = await DatabaseService.getStaff();
+        setStaffList(stf);
       } catch {
         // silent
       }
@@ -52,8 +66,15 @@ export function InputExpenseScreen({ onSaveSuccess, onCancel }: Props) {
     if (!isVehicleRelated) {
       setSelectedVehicleId(null);
       setMileage('');
+      setFuelLiters('');
     }
-  }, [isVehicleRelated]);
+    if (!isFuel) {
+      setFuelLiters('');
+    }
+    if (!isStaffRelated) {
+      setSelectedStaffId(null);
+    }
+  }, [isVehicleRelated, isStaffRelated]);
 
   const validate = (): boolean => {
     const parsed = parseFloat(amount);
@@ -75,6 +96,19 @@ export function InputExpenseScreen({ onSaveSuccess, onCancel }: Props) {
         showToast(t('mileage_required'));
         return false;
       }
+      if (isFuel) {
+        const parsedLiters = parseFloat(fuelLiters);
+        if (!fuelLiters || isNaN(parsedLiters) || parsedLiters <= 0) {
+          showToast(t('fuel_liters_required') || 'La quantité en litres est obligatoire');
+          return false;
+        }
+      }
+    }
+    if (isStaffRelated) {
+      if (!selectedStaffId) {
+        showToast(t('staff_required') || 'Veuillez sélectionner un membre du personnel');
+        return false;
+      }
     }
     return true;
   };
@@ -88,7 +122,9 @@ export function InputExpenseScreen({ onSaveSuccess, onCancel }: Props) {
         selectedCategoryId!,
         isVehicleRelated ? selectedVehicleId : null,
         isVehicleRelated ? parseFloat(mileage) : null,
-        description.trim()
+        description.trim(),
+        isStaffRelated ? selectedStaffId : null,
+        isFuel ? parseFloat(fuelLiters) : null
       );
       showToast(t('expense_saved'));
       onSaveSuccess();
@@ -144,8 +180,11 @@ export function InputExpenseScreen({ onSaveSuccess, onCancel }: Props) {
         <>
           <View style={styles.section}>
             <Text style={[styles.label, isRTL && styles.textRTL]}>{t('vehicle')}</Text>
-            <View style={[styles.chipContainer, isRTL && styles.chipContainerRTL]}>
-              {vehicles.map((v) => {
+            {vehicles.length === 0 ? (
+              <Text style={styles.emptyWarningText}>⚠️ {t('no_vehicles')}</Text>
+            ) : (
+              <View style={[styles.chipContainer, isRTL && styles.chipContainerRTL]}>
+                {vehicles.map((v) => {
                 const selected = selectedVehicleId === v.id;
                 return (
                   <TouchableOpacity
@@ -161,6 +200,7 @@ export function InputExpenseScreen({ onSaveSuccess, onCancel }: Props) {
                 );
               })}
             </View>
+            )}
           </View>
 
           <View style={styles.section}>
@@ -174,7 +214,49 @@ export function InputExpenseScreen({ onSaveSuccess, onCancel }: Props) {
               keyboardType="numeric"
             />
           </View>
+
+          {isFuel && (
+            <View style={styles.section}>
+              <Text style={[styles.label, isRTL && styles.textRTL]}>{t('fuel_liters') || 'Quantité en Litres (L)'}</Text>
+              <TextInput
+                style={[styles.textInput, isRTL && styles.textRTL]}
+                value={fuelLiters}
+                onChangeText={setFuelLiters}
+                placeholder="Ex: 45.5"
+                placeholderTextColor="#94a3b8"
+                keyboardType="numeric"
+              />
+            </View>
+          )}
         </>
+      )}
+
+      {/* Staff selection */}
+      {isStaffRelated && (
+        <View style={styles.section}>
+          <Text style={[styles.label, isRTL && styles.textRTL]}>{t('staff') || 'Personnel'}</Text>
+          {staffList.length === 0 ? (
+            <Text style={styles.emptyWarningText}>⚠️ {t('no_staff') || 'Aucun personnel enregistré'}</Text>
+          ) : (
+            <View style={[styles.chipContainer, isRTL && styles.chipContainerRTL]}>
+              {staffList.map((s) => {
+                const selected = selectedStaffId === s.id;
+                return (
+                  <TouchableOpacity
+                    key={s.id}
+                    style={[styles.chip, selected && styles.chipSelectedExpense]}
+                    onPress={() => setSelectedStaffId(s.id)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                      👤 {s.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </View>
       )}
 
       {/* Description */}
@@ -280,6 +362,12 @@ const styles = StyleSheet.create({
   },
   chipTextSelected: {
     color: '#dc2626',
+    fontWeight: '600',
+  },
+  emptyWarningText: {
+    color: '#ef4444',
+    fontSize: 14,
+    marginTop: 8,
     fontWeight: '600',
   },
   textInput: {

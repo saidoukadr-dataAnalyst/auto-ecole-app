@@ -61,6 +61,16 @@ export class DatabaseService {
         FOREIGN KEY (vehicle_id) REFERENCES Vehicles (id)
       );
 
+      -- Personnel (Staff)
+      CREATE TABLE IF NOT EXISTS Staff (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        phone TEXT,
+        role TEXT,
+        base_salary REAL NOT NULL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
       -- Historique des vidanges pour anticiper la prochaine
       CREATE TABLE IF NOT EXISTS OilChanges (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -70,7 +80,27 @@ export class DatabaseService {
         next_mileage INTEGER NOT NULL,
         FOREIGN KEY (vehicle_id) REFERENCES Vehicles (id)
       );
+      );
     `);
+
+    // Migrations pour ajouter les colonnes liées au personnel si elles n'existent pas
+    try {
+      await this.db.execAsync('ALTER TABLE Transactions ADD COLUMN staff_id INTEGER REFERENCES Staff(id);');
+    } catch (e) {}
+    
+    try {
+      await this.db.execAsync('ALTER TABLE Categories ADD COLUMN is_staff_related BOOLEAN DEFAULT 0;');
+      await this.db.runAsync('UPDATE Categories SET is_staff_related = 1 WHERE name = "Salaires"');
+    } catch (e) {}
+
+    // Migrations pour ajouter les colonnes liées au carburant
+    try {
+      await this.db.execAsync('ALTER TABLE Transactions ADD COLUMN fuel_liters REAL;');
+    } catch (e) {}
+
+    try {
+      await this.db.execAsync('ALTER TABLE Transactions ADD COLUMN mileage_at_transaction INTEGER;');
+    } catch (e) {}
   }
 
   private static async seedDefaultCategories(): Promise<void> {
@@ -80,16 +110,16 @@ export class DatabaseService {
 
     if (result && result.count === 0) {
       await this.db.execAsync(`
-        INSERT INTO Categories (name, type, is_vehicle_related, icon) VALUES 
-        ('Paiement Forfait', 'INCOME', 0, 'wallet'),
-        ('Leçon supplémentaire', 'INCOME', 0, 'cash'),
-        ('Carburant', 'EXPENSE', 1, 'gas-station'),
-        ('Entretien & Réparation', 'EXPENSE', 1, 'wrench'),
-        ('Vidange', 'EXPENSE', 1, 'water'),
-        ('Assurance', 'EXPENSE', 1, 'shield-check'),
-        ('Loyer Local', 'EXPENSE', 0, 'home'),
-        ('Salaires', 'EXPENSE', 0, 'account-group'),
-        ('Électricité & Internet', 'EXPENSE', 0, 'lightning-bolt');
+        INSERT INTO Categories (name, type, is_vehicle_related, is_staff_related, icon) VALUES 
+        ('Paiement Forfait', 'INCOME', 0, 0, 'wallet'),
+        ('Leçon supplémentaire', 'INCOME', 0, 0, 'cash'),
+        ('Carburant', 'EXPENSE', 1, 0, 'gas-station'),
+        ('Entretien & Réparation', 'EXPENSE', 1, 0, 'wrench'),
+        ('Vidange', 'EXPENSE', 1, 0, 'water'),
+        ('Assurance', 'EXPENSE', 1, 0, 'shield-check'),
+        ('Loyer Local', 'EXPENSE', 0, 0, 'home'),
+        ('Salaires', 'EXPENSE', 0, 1, 'account-group'),
+        ('Électricité & Internet', 'EXPENSE', 0, 0, 'lightning-bolt');
       `);
     }
   }
@@ -154,7 +184,18 @@ export class DatabaseService {
         COALESCE(
           (SELECT o.next_mileage FROM OilChanges o WHERE o.vehicle_id = v.id ORDER BY o.id DESC LIMIT 1),
           v.current_mileage + 10000
-        ) as next_oil_change_km
+        ) as next_oil_change_km,
+        (
+          SELECT 
+            CASE 
+              WHEN (MAX(t.mileage_at_transaction) - MIN(t.mileage_at_transaction)) > 0 
+              THEN (SUM(t.fuel_liters) / (MAX(t.mileage_at_transaction) - MIN(t.mileage_at_transaction))) * 100
+              ELSE 0 
+            END
+          FROM Transactions t
+          JOIN Categories c ON t.category_id = c.id
+          WHERE t.vehicle_id = v.id AND c.name = 'Carburant' AND t.fuel_liters IS NOT NULL
+        ) as avg_consumption
       FROM Vehicles v
       ORDER BY v.created_at DESC
     `);
@@ -206,19 +247,70 @@ export class DatabaseService {
     `);
   }
 
+  static async getTodayTransactions(): Promise<any[]> {
+    if (!this.db) await this.initDB();
+    const today = new Date().toISOString().split('T')[0];
+    const likePattern = `${today}%`;
+    return await this.db!.getAllAsync(`
+      SELECT t.id, t.amount, t.type, t.description, t.transaction_date as date, c.name as category_name
+      FROM Transactions t
+      LEFT JOIN Categories c ON t.category_id = c.id
+      WHERE t.transaction_date LIKE ?
+      ORDER BY t.transaction_date DESC
+    `, [likePattern]);
+  }
+
+  // =========================================================================
+  // STAFF (Personnel)
+  // =========================================================================
+
+  static async getStaff(): Promise<any[]> {
+    if (!this.db) await this.initDB();
+    return await this.db!.getAllAsync(`
+      SELECT s.id, s.name, s.phone, s.role, s.base_salary, s.created_at,
+        COALESCE((SELECT SUM(t.amount) FROM Transactions t WHERE t.staff_id = s.id AND t.type = 'EXPENSE'), 0) as paid_amount
+      FROM Staff s
+      ORDER BY s.created_at DESC
+    `);
+  }
+
+  static async addStaff(name: string, phone: string, role: string, baseSalary: number): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.runAsync(
+      'INSERT INTO Staff (name, phone, role, base_salary) VALUES (?, ?, ?, ?)',
+      name, phone, role, baseSalary
+    );
+  }
+
+  static async updateStaff(id: number, name: string, phone: string, role: string, baseSalary: number): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.runAsync(
+      'UPDATE Staff SET name = ?, phone = ?, role = ?, base_salary = ? WHERE id = ?',
+      name, phone, role, baseSalary, id
+    );
+  }
+
+  static async deleteStaff(id: number): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.runAsync('DELETE FROM Transactions WHERE staff_id = ?', id);
+    await this.db!.runAsync('DELETE FROM Staff WHERE id = ?', id);
+  }
+
   static async addExpense(
     amount: number,
     categoryId: number,
     vehicleId: number | null,
     currentMileage: number | null,
-    description: string
+    description: string,
+    staffId?: number | null,
+    fuelLiters?: number | null
   ): Promise<void> {
     if (!this.db) await this.initDB();
 
     await this.db!.withTransactionAsync(async () => {
       await this.db!.runAsync(
-        'INSERT INTO Transactions (amount, type, category_id, vehicle_id, description) VALUES (?, ?, ?, ?, ?)',
-        amount, 'EXPENSE', categoryId, vehicleId, description
+        'INSERT INTO Transactions (amount, type, category_id, vehicle_id, staff_id, description, fuel_liters, mileage_at_transaction) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        amount, 'EXPENSE', categoryId, vehicleId || null, staffId || null, description, fuelLiters || null, currentMileage || null
       );
 
       if (vehicleId && currentMileage) {
@@ -290,7 +382,7 @@ export class DatabaseService {
       SELECT id, name, registration, next_technical_visit, 
              julianday(next_technical_visit) - julianday('now') as days_remaining
       FROM Vehicles
-      WHERE (julianday(next_technical_visit) - julianday('now')) <= 30
+      WHERE (julianday(next_technical_visit) - julianday('now')) <= 7
       AND (julianday(next_technical_visit) - julianday('now')) >= 0
     `);
   }

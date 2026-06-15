@@ -198,6 +198,17 @@ export function VehiclesScreen() {
             <View style={[styles.alertDot, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]} />
           )}
         </View>
+
+        {item.avg_consumption > 0 && (
+          <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 6 }]}>
+            <Text style={[styles.cardDetail, item.avg_consumption > 10 && styles.textRed]}>
+              ⛽ {t('consumption') || 'Consommation'}: {item.avg_consumption.toFixed(1)} L/100km
+            </Text>
+            {item.avg_consumption > 10 && (
+              <View style={[styles.alertDot, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]} />
+            )}
+          </View>
+        )}
       </View>
     );
   };

@@ -1,14 +1,20 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { ExportService } from '../services/ExportService';
+import { SecurityService } from '../services/SecurityService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
 
-type ActionKey = 'pdf' | 'csv' | 'backup';
+type ActionKey = 'pdf' | 'csv' | 'backup' | 'change_pin';
 
 export function SettingsScreen() {
   const { t, isRTL } = useLanguage();
   const [loadingAction, setLoadingAction] = useState<ActionKey | null>(null);
+
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [currentPin, setCurrentPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
 
   const handleAction = async (action: ActionKey) => {
     if (loadingAction) return;
@@ -27,6 +33,9 @@ export function SettingsScreen() {
           await ExportService.backupDatabase();
           showToast(t('backup_success'));
           break;
+        case 'change_pin':
+          setShowPinModal(true);
+          break;
       }
     } catch {
       showToast(t('error'));
@@ -39,6 +48,18 @@ export function SettingsScreen() {
     title: string;
     items: { key: ActionKey; icon: string; label: string; description: string; color: string }[];
   }[] = [
+    {
+      title: t('security') || 'Sécurité',
+      items: [
+        {
+          key: 'change_pin',
+          icon: '🔒',
+          label: t('change_pin') || 'Changer le mot de passe',
+          description: t('change_pin_desc') || 'Modifier votre code PIN d\'accès',
+          color: '#f59e0b',
+        },
+      ],
+    },
     {
       title: t('accounting'),
       items: [
@@ -71,6 +92,28 @@ export function SettingsScreen() {
       ],
     },
   ];
+
+  const handleChangePin = async () => {
+    if (!currentPin || !newPin || !confirmPin) {
+      showToast(t('fill_required'));
+      return;
+    }
+    if (newPin !== confirmPin) {
+      showToast('Les nouveaux mots de passe ne correspondent pas');
+      return;
+    }
+    const isValid = await SecurityService.verifyUserPin(currentPin);
+    if (!isValid) {
+      showToast('Mot de passe actuel incorrect');
+      return;
+    }
+    await SecurityService.saveUserPin(newPin);
+    showToast('Mot de passe modifié avec succès');
+    setShowPinModal(false);
+    setCurrentPin('');
+    setNewPin('');
+    setConfirmPin('');
+  };
 
   return (
     <View style={styles.container}>
@@ -125,6 +168,53 @@ export function SettingsScreen() {
           </View>
         ))}
       </View>
+
+      <Modal visible={showPinModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={[styles.modalTitle, isRTL && styles.textRTL]}>Changer le mot de passe</Text>
+
+            <Text style={styles.fieldLabel}>Mot de passe actuel</Text>
+            <TextInput
+              style={styles.input}
+              secureTextEntry
+              keyboardType="number-pad"
+              value={currentPin}
+              onChangeText={setCurrentPin}
+            />
+
+            <Text style={styles.fieldLabel}>Nouveau mot de passe</Text>
+            <TextInput
+              style={styles.input}
+              secureTextEntry
+              keyboardType="number-pad"
+              value={newPin}
+              onChangeText={setNewPin}
+            />
+
+            <Text style={styles.fieldLabel}>Confirmer le nouveau mot de passe</Text>
+            <TextInput
+              style={styles.input}
+              secureTextEntry
+              keyboardType="number-pad"
+              value={confirmPin}
+              onChangeText={setConfirmPin}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.cancelBtn]}
+                onPress={() => setShowPinModal(false)}
+              >
+                <Text style={styles.cancelBtnText}>{t('cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.saveBtn]} onPress={handleChangePin}>
+                <Text style={styles.saveBtnText}>{t('save')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -222,5 +312,66 @@ const styles = StyleSheet.create({
   },
   textRTL: {
     textAlign: 'right',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1A1A2E',
+    marginBottom: 16,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 4,
+    marginTop: 8,
+  },
+  input: {
+    backgroundColor: '#F5F7FA',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 15,
+    borderWidth: 1,
+    borderColor: '#E8ECF0',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 24,
+    gap: 12,
+  },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  cancelBtn: {
+    backgroundColor: '#F0F0F0',
+  },
+  cancelBtnText: {
+    color: '#666',
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  saveBtn: {
+    backgroundColor: '#4A90D9',
+  },
+  saveBtnText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 15,
   },
 });
