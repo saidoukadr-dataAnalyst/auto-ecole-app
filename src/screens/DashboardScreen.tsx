@@ -30,9 +30,7 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
   }, [period]);
 
   const loadDashboardData = async () => {
-    const currentYear = new Date().getFullYear();
-    const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
-    const { income, expense } = await DatabaseService.getFinancialSummary(currentYear, currentMonth);
+    const { income, expense } = await DatabaseService.getFinancialSummaryByPeriod(period);
     setKpi({ income, expense, net: income - expense });
 
     const newAlerts: AlertItem[] = [];

@@ -168,7 +168,7 @@ export class DatabaseService {
 
   static async deleteStudent(id: number): Promise<void> {
     if (!this.db) await this.initDB();
-    await this.db!.runAsync('DELETE FROM Transactions WHERE student_id = ?', id);
+    await this.db!.runAsync('UPDATE Transactions SET student_id = NULL WHERE student_id = ?', id);
     await this.db!.runAsync('DELETE FROM Students WHERE id = ?', id);
   }
 
@@ -228,7 +228,7 @@ export class DatabaseService {
   static async deleteVehicle(id: number): Promise<void> {
     if (!this.db) await this.initDB();
     await this.db!.runAsync('DELETE FROM OilChanges WHERE vehicle_id = ?', id);
-    await this.db!.runAsync('DELETE FROM Transactions WHERE vehicle_id = ?', id);
+    await this.db!.runAsync('UPDATE Transactions SET vehicle_id = NULL WHERE vehicle_id = ?', id);
     await this.db!.runAsync('DELETE FROM Vehicles WHERE id = ?', id);
   }
 
@@ -291,7 +291,7 @@ export class DatabaseService {
 
   static async deleteStaff(id: number): Promise<void> {
     if (!this.db) await this.initDB();
-    await this.db!.runAsync('DELETE FROM Transactions WHERE staff_id = ?', id);
+    await this.db!.runAsync('UPDATE Transactions SET staff_id = NULL WHERE staff_id = ?', id);
     await this.db!.runAsync('DELETE FROM Staff WHERE id = ?', id);
   }
 
@@ -360,6 +360,38 @@ export class DatabaseService {
       FROM Transactions
       WHERE transaction_date LIKE ?
     `, [likePattern]);
+
+    return result || { income: 0, expense: 0 };
+  }
+
+  static async getFinancialSummaryByPeriod(period: 'TODAY' | 'WEEK' | 'MONTH' | 'YEAR'): Promise<{ income: number; expense: number }> {
+    if (!this.db) await this.initDB();
+
+    let startDate = new Date();
+    const endDate = new Date().toISOString().split('T')[0] + ' 23:59:59';
+    let startStr = '';
+
+    if (period === 'TODAY') {
+      startStr = startDate.toISOString().split('T')[0] + ' 00:00:00';
+    } else if (period === 'WEEK') {
+      const day = startDate.getDay() || 7; // Get current day number, converting Sun. to 7
+      if (day !== 1) startDate.setHours(-24 * (day - 1)); // Set to Monday
+      startStr = startDate.toISOString().split('T')[0] + ' 00:00:00';
+    } else if (period === 'MONTH') {
+      startDate.setDate(1);
+      startStr = startDate.toISOString().split('T')[0] + ' 00:00:00';
+    } else if (period === 'YEAR') {
+      startDate.setMonth(0, 1);
+      startStr = startDate.toISOString().split('T')[0] + ' 00:00:00';
+    }
+
+    const result = await this.db!.getFirstAsync<{ income: number; expense: number }>(`
+      SELECT 
+        COALESCE(SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END), 0) as income,
+        COALESCE(SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END), 0) as expense
+      FROM Transactions
+      WHERE transaction_date BETWEEN ? AND ?
+    `, [startStr, endDate]);
 
     return result || { income: 0, expense: 0 };
   }
