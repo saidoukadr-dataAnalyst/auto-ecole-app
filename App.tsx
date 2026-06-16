@@ -3,6 +3,10 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+export const AuthContext = React.createContext({ lockApp: () => {} });
+
 
 import { SecurityService } from './src/services/SecurityService';
 import { DatabaseService } from './src/services/DatabaseService';
@@ -60,8 +64,9 @@ function AppContent() {
     content = <PinScreen onUnlocked={() => setIsUnlocked(true)} />;
   } else {
     content = (
-      <NavigationContainer>
-        <Stack.Navigator 
+      <AuthContext.Provider value={{ lockApp: () => setIsUnlocked(false) }}>
+        <NavigationContainer>
+          <Stack.Navigator 
           initialRouteName="Dashboard"
           screenOptions={{
             headerStyle: {
@@ -91,6 +96,7 @@ function AppContent() {
           </Stack.Screen>
         </Stack.Navigator>
       </NavigationContainer>
+      </AuthContext.Provider>
     );
   }
 
@@ -104,10 +110,12 @@ function AppContent() {
 
 export default function App() {
   return (
-    <LanguageProvider>
-      <ThemeProvider>
-        <AppContent />
-      </ThemeProvider>
-    </LanguageProvider>
+    <SafeAreaProvider>
+      <LanguageProvider>
+        <ThemeProvider>
+          <AppContent />
+        </ThemeProvider>
+      </LanguageProvider>
+    </SafeAreaProvider>
   );
 }

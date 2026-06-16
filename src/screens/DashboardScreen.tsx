@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { DatabaseService } from '../services/DatabaseService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
@@ -112,7 +113,7 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
   const styles = getStyles(colors, isDark, isRTL);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* HEADER */}
       <View style={[styles.header, isRTL && styles.rtlRow]}>
         <Text style={styles.headerTitle}>{t('app_name')}</Text>
@@ -129,11 +130,18 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
               </View>
             )}
           </TouchableOpacity>
+
           <TouchableOpacity
-            style={styles.langToggle}
+            style={styles.langSwitchContainer}
             onPress={() => setLang(lang === 'fr' ? 'ar' : 'fr')}
+            activeOpacity={0.8}
           >
-            <Text style={styles.langToggleText}>FR | ع</Text>
+            <View style={[styles.langSwitchHalf, lang === 'fr' && styles.langSwitchActive]}>
+              <Text style={[styles.langSwitchText, lang === 'fr' && styles.langSwitchTextActive]}>FR</Text>
+            </View>
+            <View style={[styles.langSwitchHalf, lang === 'ar' && styles.langSwitchActive]}>
+              <Text style={[styles.langSwitchText, lang === 'ar' && styles.langSwitchTextActive]}>ع</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -324,7 +332,7 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
           </View>
         </TouchableOpacity>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -394,17 +402,33 @@ const getStyles = (colors: ThemeColors, isDark: boolean, isRTL: boolean) => Styl
     fontWeight: 'bold',
     color: colors.text,
   },
-  langToggle: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: colors.background,
-    borderRadius: 16,
+  langSwitchContainer: {
+    flexDirection: 'row',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9',
+    borderRadius: 20,
+    padding: 3,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  langToggleText: {
-    fontWeight: 'bold',
+  langSwitchHalf: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 16,
+  },
+  langSwitchActive: {
+    backgroundColor: colors.success,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  langSwitchText: {
+    fontSize: 13,
+    fontWeight: '600',
     color: colors.textSecondary,
+  },
+  langSwitchTextActive: {
+    color: '#ffffff',
   },
 
   // Filter chips

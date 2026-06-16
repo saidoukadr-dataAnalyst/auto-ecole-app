@@ -313,8 +313,9 @@ export function VehiclesScreen() {
             
             <ScrollView 
               showsVerticalScrollIndicator={false}
-              style={{ flex: 1 }}
+              style={{ flexShrink: 1, width: '100%' }}
               contentContainerStyle={{ paddingBottom: 20 }}
+              keyboardShouldPersistTaps="handled"
             >
               {/* Nom du Véhicule */}
               <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('name')}</Text>

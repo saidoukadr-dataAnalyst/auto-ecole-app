@@ -144,6 +144,20 @@ export function InputExpenseScreen({ onSaveSuccess, onCancel }: Props) {
     }
   };
 
+  const getTranslatedCategory = (name: string) => {
+    switch (name) {
+      case 'Carburant': return t('cat_fuel');
+      case 'Entretien & Réparation': return t('cat_maintenance');
+      case 'Vidange': return t('cat_oil');
+      case 'Assurance': return t('cat_insurance');
+      case 'Loyer Local': return t('cat_rent');
+      case 'Salaires': return t('cat_salaries');
+      case 'Électricité & Internet': return t('cat_electricity');
+      case 'Autre': return t('cat_other');
+      default: return name;
+    }
+  };
+
   const styles = getStyles(colors, isDark);
 
   return (
@@ -178,7 +192,7 @@ export function InputExpenseScreen({ onSaveSuccess, onCancel }: Props) {
                 activeOpacity={0.7}
               >
                 <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
-                  {cat.name}
+                  {getTranslatedCategory(cat.name)}
                 </Text>
               </TouchableOpacity>
             );

@@ -110,6 +110,15 @@ export class DatabaseService {
     try {
       await this.db.execAsync('ALTER TABLE Students ADD COLUMN status TEXT DEFAULT "ACTIVE";');
     } catch (e) {}
+
+    // Migration pour ajouter la catégorie "Autre"
+    try {
+      await this.db.execAsync(`
+        INSERT INTO Categories (name, type, is_vehicle_related, is_staff_related, icon)
+        SELECT 'Autre', 'EXPENSE', 0, 0, 'dots-horizontal'
+        WHERE NOT EXISTS (SELECT 1 FROM Categories WHERE name = 'Autre' AND type = 'EXPENSE');
+      `);
+    } catch (e) {}
   }
 
   private static async seedDefaultCategories(): Promise<void> {
@@ -128,7 +137,8 @@ export class DatabaseService {
         ('Assurance', 'EXPENSE', 1, 0, 'shield-check'),
         ('Loyer Local', 'EXPENSE', 0, 0, 'home'),
         ('Salaires', 'EXPENSE', 0, 1, 'account-group'),
-        ('Électricité & Internet', 'EXPENSE', 0, 0, 'lightning-bolt');
+        ('Électricité & Internet', 'EXPENSE', 0, 0, 'lightning-bolt'),
+        ('Autre', 'EXPENSE', 0, 0, 'dots-horizontal');
       `);
     }
   }

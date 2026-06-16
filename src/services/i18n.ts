@@ -45,8 +45,8 @@ type TranslationKeys =
   | 'vehicle' | 'transactions' | 'pin_storage_error' | 'recovery_success' | 'recovery_invalid'
   | 'staff' | 'menu_staff' | 'add_staff' | 'edit_staff' | 'role' | 'salary' | 'base_salary' | 'no_staff' | 'staff_required' | 'staff_saved' | 'staff_deleted' | 'phone_optional'
   | 'kpi_net' | 'no_activity' | 'security' | 'change_pin' | 'change_pin_desc'
-  | 'fuel_liters' | 'fuel_liters_required' | 'consumption'
-  | 'income_label' | 'expense_label' | 'profit_label';
+  | 'income_label' | 'expense_label' | 'profit_label'
+  | 'cat_fuel' | 'cat_maintenance' | 'cat_oil' | 'cat_insurance' | 'cat_rent' | 'cat_salaries' | 'cat_electricity' | 'cat_other';
 
 type Translations = Record<Lang, Record<TranslationKeys, string>>;
 
@@ -218,7 +218,15 @@ export const translations: Translations = {
     consumption: 'Consommation',
     income_label: 'Entrées',
     expense_label: 'Sorties',
-    profit_label: 'Bénéfice'
+    profit_label: 'Bénéfice',
+    cat_fuel: 'Carburant',
+    cat_maintenance: 'Entretien & Réparation',
+    cat_oil: 'Vidange',
+    cat_insurance: 'Assurance',
+    cat_rent: 'Loyer Local',
+    cat_salaries: 'Salaires',
+    cat_electricity: 'Électricité & Internet',
+    cat_other: 'Autre'
   },
   ar: {
     app_name: 'مدرستي',
@@ -387,7 +395,15 @@ export const translations: Translations = {
     consumption: 'الاستهلاك',
     income_label: 'مداخيل',
     expense_label: 'مصاريف',
-    profit_label: 'الأرباح'
+    profit_label: 'الأرباح',
+    cat_fuel: 'وقود',
+    cat_maintenance: 'صيانة وإصلاح',
+    cat_oil: 'تغيير الزيت',
+    cat_insurance: 'تأمين',
+    cat_rent: 'كراء المحل',
+    cat_salaries: 'رواتب',
+    cat_electricity: 'كهرباء وإنترنت',
+    cat_other: 'أخرى'
   },
 };
 

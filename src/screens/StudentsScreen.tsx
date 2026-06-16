@@ -327,7 +327,13 @@ export function StudentsScreen() {
               {editingStudent ? t('edit_student') : t('add_student')}
             </Text>
 
-            {/* Nom */}
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              style={{ flexShrink: 1, width: '100%' }}
+              contentContainerStyle={{ paddingBottom: 20 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Nom */}
             <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('name')}</Text>
             <TextInput
               style={[styles.input, isRTL && styles.textRight]}
@@ -387,6 +393,7 @@ export function StudentsScreen() {
                 } DH
               </Text>
             </View>
+            </ScrollView>
 
             <View style={[styles.modalActions, isRTL && styles.rowReverse]}>
               <TouchableOpacity

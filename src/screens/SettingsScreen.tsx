@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, TextInput } from 'react-native';
+import { AuthContext } from '../../App';
 import { ExportService } from '../services/ExportService';
 import { SecurityService } from '../services/SecurityService';
 import { useLanguage } from '../services/i18n';
@@ -7,11 +8,12 @@ import { showToast } from '../services/ToastService';
 import { useTheme } from '../theme/ThemeContext';
 import { ThemeColors } from '../theme/colors';
 
-type ActionKey = 'pdf' | 'csv' | 'backup' | 'change_pin';
+type ActionKey = 'pdf' | 'csv' | 'backup' | 'change_pin' | 'lock';
 
 export function SettingsScreen() {
   const { t, isRTL } = useLanguage();
   const { colors, isDark } = useTheme();
+  const { lockApp } = useContext(AuthContext);
   const [loadingAction, setLoadingAction] = useState<ActionKey | null>(null);
 
   const [showPinModal, setShowPinModal] = useState(false);
@@ -39,6 +41,9 @@ export function SettingsScreen() {
         case 'change_pin':
           setShowPinModal(true);
           break;
+        case 'lock':
+          lockApp();
+          break;
       }
     } catch {
       showToast(t('error'));
@@ -60,6 +65,13 @@ export function SettingsScreen() {
           label: t('change_pin') || 'Changer le mot de passe',
           description: t('change_pin_desc') || 'Modifier votre code PIN d\'accès',
           color: '#f59e0b',
+        },
+        {
+          key: 'lock',
+          icon: '🔐',
+          label: 'Verrouiller l\'application',
+          description: 'Verrouiller immédiatement l\'accès',
+          color: colors.danger,
         },
       ],
     },
