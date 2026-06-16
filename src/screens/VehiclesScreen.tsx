@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, ActivityIndicator, RefreshControl, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator, RefreshControl, Alert, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { DatabaseService } from '../services/DatabaseService';
 import { useLanguage } from '../services/i18n';
@@ -280,7 +280,7 @@ export function VehiclesScreen() {
       <View style={[styles.header, isRTL && styles.rowReverse]}>
         <Text style={styles.headerTitle}>{t('vehicles')}</Text>
         <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
-          <Text style={styles.addBtnText}>+ {t('add_new')}</Text>
+          <Text style={styles.addBtnText}>{t('add_new')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -306,114 +306,110 @@ export function VehiclesScreen() {
               {editingVehicle ? t('edit_vehicle') : t('add_vehicle')}
             </Text>
             
-            <View style={{ flex: 1 }}>
-              <FlatList
-                data={[{key: 'form'}]}
-                showsVerticalScrollIndicator={false}
-                renderItem={() => (
-                  <View style={{ paddingBottom: 20 }}>
-                    {/* Nom du Véhicule */}
-                    <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('name')}</Text>
-                    <TextInput
-                      style={[styles.input, isRTL && styles.textRight]}
-                      placeholder={t('name')}
-                      value={name}
-                      onChangeText={setName}
-                      placeholderTextColor="#999"
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              style={{ flex: 1 }}
+              contentContainerStyle={{ paddingBottom: 20 }}
+            >
+              {/* Nom du Véhicule */}
+              <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('name')}</Text>
+              <TextInput
+                style={[styles.input, isRTL && styles.textRight]}
+                placeholder={t('name')}
+                value={name}
+                onChangeText={setName}
+                placeholderTextColor="#999"
+              />
+
+              {/* Immatriculation */}
+              <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('registration')}</Text>
+              <TextInput
+                style={[styles.input, isRTL && styles.textRight]}
+                placeholder={t('registration')}
+                value={registration}
+                onChangeText={setRegistration}
+                placeholderTextColor="#999"
+              />
+
+              {/* Kilométrage */}
+              <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('mileage')} (km)</Text>
+              <TextInput
+                style={[styles.input, isRTL && styles.textRight]}
+                placeholder="0"
+                value={mileage}
+                onChangeText={setMileage}
+                keyboardType="numeric"
+                placeholderTextColor="#999"
+              />
+
+              {/* Visite Technique - Date Picker */}
+              <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('technical_visit')}</Text>
+              <TouchableOpacity style={styles.dateButton} onPress={() => setShowVisitPicker(true)}>
+                <Text style={[styles.dateButtonText, !nextVisit && styles.datePlaceholder]}>
+                  {nextVisit ? `📅 ${nextVisit}` : `📅 ${t('select_date')}`}
+                </Text>
+              </TouchableOpacity>
+              {showVisitPicker && (
+                <DateTimePicker
+                  value={nextVisit ? new Date(nextVisit) : new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={onVisitDateChange}
+                />
+              )}
+
+              {/* Date de Vidange - Date Picker (only for new vehicles) */}
+              {!editingVehicle && (
+                <>
+                  <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('oil_change_date')}</Text>
+                  <TouchableOpacity style={styles.dateButton} onPress={() => setShowOilPicker(true)}>
+                    <Text style={[styles.dateButtonText, !oilChangeDate && styles.datePlaceholder]}>
+                      {oilChangeDate ? `🛢️ ${oilChangeDate}` : `🛢️ ${t('select_date')}`}
+                    </Text>
+                  </TouchableOpacity>
+                  {showOilPicker && (
+                    <DateTimePicker
+                      value={oilChangeDate ? new Date(oilChangeDate) : new Date()}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      onChange={onOilDateChange}
                     />
+                  )}
+                </>
+              )}
 
-                    {/* Immatriculation */}
-                    <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('registration')}</Text>
-                    <TextInput
-                      style={[styles.input, isRTL && styles.textRight]}
-                      placeholder={t('registration')}
-                      value={registration}
-                      onChangeText={setRegistration}
-                      placeholderTextColor="#999"
-                    />
+              {/* Assurance - Date Picker */}
+              <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>Date Assurance</Text>
+              <TouchableOpacity style={styles.dateButton} onPress={() => setShowInsurancePicker(true)}>
+                <Text style={[styles.dateButtonText, !insuranceDate && styles.datePlaceholder]}>
+                  {insuranceDate ? `🛡️ ${insuranceDate}` : `🛡️ Sélectionner une date`}
+                </Text>
+              </TouchableOpacity>
+              {showInsurancePicker && (
+                <DateTimePicker
+                  value={insuranceDate ? new Date(insuranceDate) : new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={onInsuranceDateChange}
+                />
+              )}
 
-            {/* Kilométrage */}
-            <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('mileage')} (km)</Text>
-            <TextInput
-              style={[styles.input, isRTL && styles.textRight]}
-              placeholder="0"
-              value={mileage}
-              onChangeText={setMileage}
-              keyboardType="numeric"
-              placeholderTextColor="#999"
-            />
-
-            {/* Visite Technique - Date Picker */}
-            <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('technical_visit')}</Text>
-            <TouchableOpacity style={styles.dateButton} onPress={() => setShowVisitPicker(true)}>
-              <Text style={[styles.dateButtonText, !nextVisit && styles.datePlaceholder]}>
-                {nextVisit ? `📅 ${nextVisit}` : `📅 ${t('select_date')}`}
-              </Text>
-            </TouchableOpacity>
-            {showVisitPicker && (
-              <DateTimePicker
-                value={nextVisit ? new Date(nextVisit) : new Date()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={onVisitDateChange}
-              />
-            )}
-
-            {/* Date de Vidange - Date Picker (only for new vehicles) */}
-            {!editingVehicle && (
-              <>
-                <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('oil_change_date')}</Text>
-                <TouchableOpacity style={styles.dateButton} onPress={() => setShowOilPicker(true)}>
-                  <Text style={[styles.dateButtonText, !oilChangeDate && styles.datePlaceholder]}>
-                    {oilChangeDate ? `🛢️ ${oilChangeDate}` : `🛢️ ${t('select_date')}`}
-                  </Text>
-                </TouchableOpacity>
-                {showOilPicker && (
-                  <DateTimePicker
-                    value={oilChangeDate ? new Date(oilChangeDate) : new Date()}
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={onOilDateChange}
-                  />
-                )}
-              </>
-            )}
-
-            {/* Assurance - Date Picker */}
-            <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>Date Assurance</Text>
-            <TouchableOpacity style={styles.dateButton} onPress={() => setShowInsurancePicker(true)}>
-              <Text style={[styles.dateButtonText, !insuranceDate && styles.datePlaceholder]}>
-                {insuranceDate ? `🛡️ ${insuranceDate}` : `🛡️ Sélectionner une date`}
-              </Text>
-            </TouchableOpacity>
-            {showInsurancePicker && (
-              <DateTimePicker
-                value={insuranceDate ? new Date(insuranceDate) : new Date()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={onInsuranceDateChange}
-              />
-            )}
-
-            {/* Vignette - Date Picker */}
-            <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>Date Vignette</Text>
-            <TouchableOpacity style={styles.dateButton} onPress={() => setShowVignettePicker(true)}>
-              <Text style={[styles.dateButtonText, !vignetteDate && styles.datePlaceholder]}>
-                {vignetteDate ? `🏷️ ${vignetteDate}` : `🏷️ Sélectionner une date`}
-              </Text>
-            </TouchableOpacity>
-            {showVignettePicker && (
-              <DateTimePicker
-                value={vignetteDate ? new Date(vignetteDate) : new Date()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={onVignetteDateChange}
-              />
-            )}
-                  </View>
-                )}
-              />
-            </View>
+              {/* Vignette - Date Picker */}
+              <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>Date Vignette</Text>
+              <TouchableOpacity style={styles.dateButton} onPress={() => setShowVignettePicker(true)}>
+                <Text style={[styles.dateButtonText, !vignetteDate && styles.datePlaceholder]}>
+                  {vignetteDate ? `🏷️ ${vignetteDate}` : `🏷️ Sélectionner une date`}
+                </Text>
+              </TouchableOpacity>
+              {showVignettePicker && (
+                <DateTimePicker
+                  value={vignetteDate ? new Date(vignetteDate) : new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={onVignetteDateChange}
+                />
+              )}
+            </ScrollView>
 
             <View style={[styles.modalActions, isRTL && styles.rowReverse]}>
               <TouchableOpacity
