@@ -4,11 +4,14 @@ import { ExportService } from '../services/ExportService';
 import { SecurityService } from '../services/SecurityService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeColors } from '../theme/colors';
 
 type ActionKey = 'pdf' | 'csv' | 'backup' | 'change_pin';
 
 export function SettingsScreen() {
   const { t, isRTL } = useLanguage();
+  const { colors, isDark } = useTheme();
   const [loadingAction, setLoadingAction] = useState<ActionKey | null>(null);
 
   const [showPinModal, setShowPinModal] = useState(false);
@@ -115,6 +118,8 @@ export function SettingsScreen() {
     setConfirmPin('');
   };
 
+  const styles = getStyles(colors, isDark);
+
   return (
     <View style={styles.container}>
       <View style={[styles.header, isRTL && styles.headerRTL]}>
@@ -143,7 +148,7 @@ export function SettingsScreen() {
                     disabled={loadingAction !== null}
                     activeOpacity={0.7}
                   >
-                    <View style={[styles.actionIcon, { backgroundColor: item.color + '18' }]}>
+                    <View style={[styles.actionIcon, { backgroundColor: item.color + (isDark ? '25' : '15') }]}>
                       {isLoading ? (
                         <ActivityIndicator size="small" color={item.color} />
                       ) : (
@@ -181,6 +186,7 @@ export function SettingsScreen() {
               keyboardType="number-pad"
               value={currentPin}
               onChangeText={setCurrentPin}
+              placeholderTextColor={colors.textSecondary}
             />
 
             <Text style={styles.fieldLabel}>Nouveau mot de passe</Text>
@@ -190,6 +196,7 @@ export function SettingsScreen() {
               keyboardType="number-pad"
               value={newPin}
               onChangeText={setNewPin}
+              placeholderTextColor={colors.textSecondary}
             />
 
             <Text style={styles.fieldLabel}>Confirmer le nouveau mot de passe</Text>
@@ -199,6 +206,7 @@ export function SettingsScreen() {
               keyboardType="number-pad"
               value={confirmPin}
               onChangeText={setConfirmPin}
+              placeholderTextColor={colors.textSecondary}
             />
 
             <View style={styles.modalActions}>
@@ -219,18 +227,18 @@ export function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background,
   },
   header: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 12,
-    backgroundColor: '#ffffff',
+    paddingBottom: 16,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: colors.border,
   },
   headerRTL: {
     alignItems: 'flex-end',
@@ -238,7 +246,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.text,
   },
   content: {
     padding: 16,
@@ -249,20 +257,22 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748b',
+    color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 10,
     marginHorizontal: 4,
   },
   sectionCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: isDark ? 0.3 : 0.05,
+    shadowRadius: 8,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   actionButton: {
@@ -275,39 +285,39 @@ const styles = StyleSheet.create({
   },
   actionButtonBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: colors.border,
   },
   actionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
   actionIconText: {
-    fontSize: 20,
+    fontSize: 22,
   },
   actionContent: {
     flex: 1,
-    marginLeft: 14,
+    marginLeft: 16,
   },
   actionContentRTL: {
     marginLeft: 0,
-    marginRight: 14,
+    marginRight: 16,
   },
   actionLabel: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#1e293b',
+    color: colors.text,
   },
   actionDescription: {
     fontSize: 13,
-    color: '#94a3b8',
-    marginTop: 2,
+    color: colors.textSecondary,
+    marginTop: 4,
   },
   chevron: {
-    fontSize: 22,
-    color: '#cbd5e1',
+    fontSize: 24,
+    color: colors.textSecondary,
     fontWeight: '300',
   },
   textRTL: {
@@ -315,36 +325,39 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
+    backgroundColor: colors.surface,
+    borderRadius: 24,
     padding: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
-    color: '#1A1A2E',
-    marginBottom: 16,
+    color: colors.text,
+    marginBottom: 20,
   },
   fieldLabel: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#64748b',
-    marginBottom: 4,
-    marginTop: 8,
+    color: colors.textSecondary,
+    marginBottom: 8,
+    marginTop: 12,
   },
   input: {
-    backgroundColor: '#F5F7FA',
+    backgroundColor: colors.background,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
     borderWidth: 1,
-    borderColor: '#E8ECF0',
+    borderColor: colors.border,
+    color: colors.text,
   },
   modalActions: {
     flexDirection: 'row',
@@ -354,24 +367,26 @@ const styles = StyleSheet.create({
   },
   modalBtn: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
   },
   cancelBtn: {
-    backgroundColor: '#F0F0F0',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   cancelBtnText: {
-    color: '#666',
+    color: colors.text,
     fontWeight: '600',
-    fontSize: 15,
+    fontSize: 16,
   },
   saveBtn: {
-    backgroundColor: '#4A90D9',
+    backgroundColor: colors.primary,
   },
   saveBtnText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 15,
+    fontSize: 16,
   },
 });

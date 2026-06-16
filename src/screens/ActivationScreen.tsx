@@ -4,9 +4,12 @@ import * as Clipboard from 'expo-clipboard';
 import { SecurityService } from '../services/SecurityService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeColors } from '../theme/colors';
 
 export const ActivationScreen = ({ onActivated }: { onActivated: () => void }) => {
   const { t } = useLanguage();
+  const { colors, isDark } = useTheme();
   const [deviceId, setDeviceId] = useState<string>('');
   const [inputKey, setInputKey] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -50,10 +53,12 @@ export const ActivationScreen = ({ onActivated }: { onActivated: () => void }) =
     showToast(t('activation_copied'));
   };
 
+  const styles = getStyles(colors, isDark);
+
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -75,6 +80,7 @@ export const ActivationScreen = ({ onActivated }: { onActivated: () => void }) =
       <TextInput
         style={styles.input}
         placeholder="Ex: ABCD-EFGH-IJKL-MNOP"
+        placeholderTextColor={colors.textSecondary}
         value={inputKey}
         onChangeText={setInputKey}
         autoCapitalize="characters"
@@ -96,94 +102,106 @@ export const ActivationScreen = ({ onActivated }: { onActivated: () => void }) =
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
     padding: 24,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background,
     justifyContent: 'center',
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
-    color: '#0f172a',
+    color: colors.text,
     textAlign: 'center',
     marginBottom: 16,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#475569',
+    fontSize: 15,
+    color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 32,
-    lineHeight: 20,
+    lineHeight: 22,
   },
   deviceCodeContainer: {
-    backgroundColor: '#ffffff',
-    padding: 20,
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    padding: 24,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     alignItems: 'center',
     marginBottom: 32,
     elevation: 2,
     shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowOpacity: isDark ? 0.3 : 0.05,
+    shadowRadius: 8,
   },
   deviceCodeLabel: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#64748b',
-    marginBottom: 8,
+    color: colors.textSecondary,
+    marginBottom: 12,
+    textTransform: 'uppercase',
   },
   deviceCode: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#ef4444',
+    color: colors.danger,
     marginBottom: 16,
+    letterSpacing: 1,
   },
   copyButton: {
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   copyButtonText: {
-    color: '#0f172a',
+    color: colors.text,
     fontWeight: '600',
     fontSize: 14,
   },
   inputLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0f172a',
-    marginBottom: 8,
+    color: colors.text,
+    marginBottom: 10,
   },
   input: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 8,
+    borderColor: colors.border,
+    borderRadius: 12,
     padding: 16,
     fontSize: 16,
     marginBottom: 24,
     textAlign: 'center',
     letterSpacing: 2,
+    color: colors.text,
   },
   button: {
-    backgroundColor: '#2563eb',
-    padding: 16,
-    borderRadius: 8,
+    backgroundColor: colors.primary,
+    padding: 18,
+    borderRadius: 12,
     alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   buttonDisabled: {
-    backgroundColor: '#93c5fd',
+    backgroundColor: isDark ? '#374151' : '#93c5fd',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   buttonText: {
     color: '#ffffff',

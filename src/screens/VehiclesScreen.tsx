@@ -4,9 +4,12 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { DatabaseService } from '../services/DatabaseService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeColors } from '../theme/colors';
 
 export function VehiclesScreen() {
   const { t, isRTL } = useLanguage();
+  const { colors, isDark } = useTheme();
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -210,14 +213,14 @@ export function VehiclesScreen() {
           </View>
         </View>
 
-        <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 8 }]}>
+        <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 12 }]}>
           <Text style={styles.cardDetail}>
             🛣️ {t('mileage')}: {(item.current_mileage || 0).toLocaleString()} km
           </Text>
         </View>
 
-        <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 6 }]}>
-          <Text style={[styles.cardDetail, oilUrgent && styles.textRed]}>
+        <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 8 }]}>
+          <Text style={[styles.cardDetail, oilUrgent && styles.textDanger]}>
             🛢️ {t('oil_change')}: {oilRemaining > 0 ? `${oilRemaining.toLocaleString()} km` : t('overdue')}
           </Text>
           {oilUrgent && (
@@ -225,8 +228,8 @@ export function VehiclesScreen() {
           )}
         </View>
 
-        <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 6 }]}>
-          <Text style={[styles.cardDetail, visitUrgent && styles.textRed]}>
+        <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 8 }]}>
+          <Text style={[styles.cardDetail, visitUrgent && styles.textDanger]}>
             🔧 {t('technical_visit')}: {visitDate}
           </Text>
           {visitUrgent && (
@@ -234,8 +237,8 @@ export function VehiclesScreen() {
           )}
         </View>
 
-        <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 6 }]}>
-          <Text style={[styles.cardDetail, insuranceUrgent && styles.textRed]}>
+        <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 8 }]}>
+          <Text style={[styles.cardDetail, insuranceUrgent && styles.textDanger]}>
             🛡️ Assurance: {insDate}
           </Text>
           {insuranceUrgent && (
@@ -243,8 +246,8 @@ export function VehiclesScreen() {
           )}
         </View>
 
-        <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 6 }]}>
-          <Text style={[styles.cardDetail, vignetteUrgent && styles.textRed]}>
+        <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 8 }]}>
+          <Text style={[styles.cardDetail, vignetteUrgent && styles.textDanger]}>
             🏷️ Vignette: {vigDate}
           </Text>
           {vignetteUrgent && (
@@ -253,8 +256,8 @@ export function VehiclesScreen() {
         </View>
 
         {item.avg_consumption > 0 && (
-          <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 6 }]}>
-            <Text style={[styles.cardDetail, item.avg_consumption > 10 && styles.textRed]}>
+          <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 8 }]}>
+            <Text style={[styles.cardDetail, item.avg_consumption > 10 && styles.textDanger]}>
               ⛽ {t('consumption') || 'Consommation'}: {item.avg_consumption.toFixed(1)} L/100km
             </Text>
             {item.avg_consumption > 10 && (
@@ -266,10 +269,12 @@ export function VehiclesScreen() {
     );
   };
 
+  const styles = getStyles(colors, isDark);
+
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#4A90D9" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -280,7 +285,7 @@ export function VehiclesScreen() {
       <View style={[styles.header, isRTL && styles.rowReverse]}>
         <Text style={styles.headerTitle}>{t('vehicles')}</Text>
         <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
-          <Text style={styles.addBtnText}>{t('add_new')}</Text>
+          <Text style={styles.addBtnText}>+ {t('add_new')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -290,7 +295,7 @@ export function VehiclesScreen() {
         keyExtractor={(item) => String(item.id)}
         renderItem={renderVehicle}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#4A90D9']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
         ListEmptyComponent={
           <View style={styles.center}>
             <Text style={styles.emptyText}>{t('no_data')}</Text>
@@ -318,7 +323,7 @@ export function VehiclesScreen() {
                 placeholder={t('name')}
                 value={name}
                 onChangeText={setName}
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.textSecondary}
               />
 
               {/* Immatriculation */}
@@ -328,7 +333,7 @@ export function VehiclesScreen() {
                 placeholder={t('registration')}
                 value={registration}
                 onChangeText={setRegistration}
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.textSecondary}
               />
 
               {/* Kilométrage */}
@@ -339,7 +344,7 @@ export function VehiclesScreen() {
                 value={mileage}
                 onChangeText={setMileage}
                 keyboardType="numeric"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.textSecondary}
               />
 
               {/* Visite Technique - Date Picker */}
@@ -436,10 +441,10 @@ export function VehiclesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: colors.background,
   },
   center: {
     flex: 1,
@@ -453,48 +458,58 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 12,
+    paddingBottom: 16,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: colors.text,
   },
   addBtn: {
-    backgroundColor: '#4A90D9',
+    backgroundColor: colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: 12,
   },
   addBtnText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 15,
   },
   list: {
     paddingHorizontal: 20,
+    paddingTop: 16,
     paddingBottom: 20,
   },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: isDark ? 0.3 : 0.05,
+    shadowRadius: 10,
+    elevation: 4,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingBottom: 12,
   },
   cardName: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: colors.text,
     flex: 1,
   },
   cardActions: {
@@ -502,17 +517,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   editBtn: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 8,
-    padding: 8,
+    backgroundColor: colors.iconBg,
+    borderRadius: 10,
+    padding: 10,
   },
   editBtnText: {
     fontSize: 16,
   },
   deleteBtn: {
-    backgroundColor: '#FEF2F2',
-    borderRadius: 8,
-    padding: 8,
+    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
+    borderRadius: 10,
+    padding: 10,
   },
   deleteBtnText: {
     fontSize: 16,
@@ -528,101 +543,106 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   cardDetail: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 15,
+    color: colors.textSecondary,
+    fontWeight: '500',
   },
-  textRed: {
-    color: '#D32F2F',
-    fontWeight: '600',
+  textDanger: {
+    color: colors.danger,
+    fontWeight: '700',
   },
   alertDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#D32F2F',
+    backgroundColor: colors.danger,
   },
   emptyText: {
     fontSize: 16,
-    color: '#999',
+    color: colors.textSecondary,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
+    backgroundColor: colors.surface,
+    borderRadius: 24,
     padding: 24,
     maxHeight: '85%',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
-    color: '#1A1A2E',
-    marginBottom: 16,
+    color: colors.text,
+    marginBottom: 20,
   },
   fieldLabel: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#64748b',
-    marginBottom: 4,
-    marginTop: 4,
+    color: colors.textSecondary,
+    marginBottom: 6,
+    marginTop: 8,
   },
   input: {
-    backgroundColor: '#F5F7FA',
+    backgroundColor: colors.background,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
-    marginBottom: 8,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E8ECF0',
-    color: '#333',
+    borderColor: colors.border,
+    color: colors.text,
   },
   dateButton: {
-    backgroundColor: '#F5F7FA',
+    backgroundColor: colors.background,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    marginBottom: 8,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E8ECF0',
+    borderColor: colors.border,
   },
   dateButtonText: {
     fontSize: 15,
-    color: '#333',
+    color: colors.text,
   },
   datePlaceholder: {
-    color: '#999',
+    color: colors.textSecondary,
   },
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 12,
+    marginTop: 16,
     gap: 12,
   },
   modalBtn: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
   },
   cancelBtn: {
-    backgroundColor: '#F0F0F0',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   cancelBtnText: {
-    color: '#666',
+    color: colors.text,
     fontWeight: '600',
-    fontSize: 15,
+    fontSize: 16,
   },
   saveBtn: {
-    backgroundColor: '#4A90D9',
+    backgroundColor: colors.primary,
   },
   saveBtnText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 15,
+    fontSize: 16,
   },
 });

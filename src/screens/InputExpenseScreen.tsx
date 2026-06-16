@@ -3,6 +3,8 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 
 import { DatabaseService } from '../services/DatabaseService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeColors } from '../theme/colors';
 
 interface Category {
   id: number;
@@ -29,6 +31,7 @@ interface Props {
 
 export function InputExpenseScreen({ onSaveSuccess, onCancel }: Props) {
   const { t, isRTL } = useLanguage();
+  const { colors, isDark } = useTheme();
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [mileage, setMileage] = useState('');
@@ -141,6 +144,8 @@ export function InputExpenseScreen({ onSaveSuccess, onCancel }: Props) {
     }
   };
 
+  const styles = getStyles(colors, isDark);
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled">
       {/* Amount */}
@@ -152,7 +157,7 @@ export function InputExpenseScreen({ onSaveSuccess, onCancel }: Props) {
             value={amount}
             onChangeText={setAmount}
             placeholder="0.00"
-            placeholderTextColor="#fca5a5"
+            placeholderTextColor={isDark ? "rgba(220, 38, 38, 0.4)" : "#fca5a5"}
             keyboardType="numeric"
           />
           <Text style={styles.currency}>DH</Text>
@@ -216,7 +221,7 @@ export function InputExpenseScreen({ onSaveSuccess, onCancel }: Props) {
               value={mileage}
               onChangeText={setMileage}
               placeholder={t('mileage_placeholder') ?? 'km'}
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={colors.textSecondary}
               keyboardType="numeric"
             />
           </View>
@@ -229,7 +234,7 @@ export function InputExpenseScreen({ onSaveSuccess, onCancel }: Props) {
                 value={fuelLiters}
                 onChangeText={setFuelLiters}
                 placeholder="Ex: 45.5"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={colors.textSecondary}
                 keyboardType="numeric"
               />
             </View>
@@ -273,7 +278,7 @@ export function InputExpenseScreen({ onSaveSuccess, onCancel }: Props) {
           value={description}
           onChangeText={setDescription}
           placeholder={t('description_placeholder') ?? ''}
-          placeholderTextColor="#94a3b8"
+          placeholderTextColor={colors.textSecondary}
           multiline
           numberOfLines={3}
           textAlignVertical="top"
@@ -298,10 +303,10 @@ export function InputExpenseScreen({ onSaveSuccess, onCancel }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background,
   },
   contentContainer: {
     padding: 20,
@@ -313,18 +318,18 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textSecondary,
     marginBottom: 8,
   },
   amountRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderWidth: 2,
-    borderColor: '#fecaca',
+    borderColor: isDark ? 'rgba(239, 68, 68, 0.4)' : '#fecaca',
   },
   rowRTL: {
     flexDirection: 'row-reverse',
@@ -333,12 +338,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 36,
     fontWeight: '700',
-    color: '#dc2626',
+    color: colors.danger,
   },
   currency: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#94a3b8',
+    color: colors.textSecondary,
     marginLeft: 8,
   },
   chipContainer: {
@@ -353,46 +358,46 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9',
     borderWidth: 1.5,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   chipSelectedExpense: {
-    backgroundColor: '#fef2f2',
-    borderColor: '#dc2626',
+    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2',
+    borderColor: colors.danger,
   },
   chipText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#475569',
+    color: colors.textSecondary,
   },
   chipTextSelected: {
-    color: '#dc2626',
+    color: colors.danger,
     fontWeight: '600',
   },
   emptyWarningText: {
-    color: '#ef4444',
+    color: colors.danger,
     fontSize: 14,
     marginTop: 8,
     fontWeight: '600',
   },
   textInput: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 14,
     fontSize: 15,
-    color: '#1e293b',
+    color: colors.text,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   textArea: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 14,
     fontSize: 15,
-    color: '#1e293b',
+    color: colors.text,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     minHeight: 90,
   },
   buttonRow: {
@@ -404,14 +409,16 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 16,
     borderRadius: 14,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   saveButton: {
     flex: 1,
@@ -421,7 +428,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveButtonExpense: {
-    backgroundColor: '#dc2626',
+    backgroundColor: colors.danger,
   },
   saveButtonText: {
     fontSize: 16,

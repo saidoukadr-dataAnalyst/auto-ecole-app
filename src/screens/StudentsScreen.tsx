@@ -3,9 +3,12 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, A
 import { DatabaseService } from '../services/DatabaseService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeColors } from '../theme/colors';
 
 export function StudentsScreen() {
   const { t, isRTL } = useLanguage();
+  const { colors, isDark } = useTheme();
   const [students, setStudents] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
   const [search, setSearch] = useState('');
@@ -192,13 +195,6 @@ export function StudentsScreen() {
     }
   };
 
-  // Calculate remaining in the form
-  const formRemaining = () => {
-    const price = parseFloat(packagePrice) || 0;
-    const adv = parseFloat(advance) || 0;
-    return Math.max(0, price - adv);
-  };
-
   const renderStudent = ({ item }: { item: any }) => {
     const balance = (item.package_price || 0) - (item.paid_amount || 0);
     const isPaid = balance <= 0;
@@ -224,10 +220,10 @@ export function StudentsScreen() {
           </View>
         </View>
 
-        <View style={[styles.row, isRTL && styles.rowReverse]}>
+        <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 4 }]}>
           <Text style={styles.cardDetail}>📞 {item.phone || '—'}</Text>
         </View>
-        <View style={[styles.row, isRTL && styles.rowReverse]}>
+        <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 4 }]}>
           <Text style={styles.cardDetail}>📅 {t('enrolled')}: {enrolledDate}</Text>
         </View>
 
@@ -249,7 +245,7 @@ export function StudentsScreen() {
           </View>
         </View>
 
-        <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 8 }]}>
+        <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 12 }]}>
           {isPaid ? (
             <View style={[styles.badge, styles.badgeGreen]}>
               <Text style={styles.badgeTextGreen}>✅ {t('paid')}</Text>
@@ -264,10 +260,12 @@ export function StudentsScreen() {
     );
   };
 
+  const styles = getStyles(colors, isDark);
+
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#4A90D9" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -303,7 +301,7 @@ export function StudentsScreen() {
           placeholder={`🔍 ${t('search')}...`}
           value={search}
           onChangeText={setSearch}
-          placeholderTextColor="#999"
+          placeholderTextColor={colors.textSecondary}
         />
       </View>
 
@@ -313,7 +311,7 @@ export function StudentsScreen() {
         keyExtractor={(item) => String(item.id)}
         renderItem={renderStudent}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#4A90D9']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
         ListEmptyComponent={
           <View style={styles.center}>
             <Text style={styles.emptyText}>{t('no_data')}</Text>
@@ -336,7 +334,7 @@ export function StudentsScreen() {
               placeholder={t('name')}
               value={name}
               onChangeText={setName}
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.textSecondary}
             />
 
             {/* Téléphone */}
@@ -347,7 +345,7 @@ export function StudentsScreen() {
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.textSecondary}
             />
 
             {/* Prix du forfait */}
@@ -358,7 +356,7 @@ export function StudentsScreen() {
               value={packagePrice}
               onChangeText={setPackagePrice}
               keyboardType="numeric"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.textSecondary}
             />
 
             {/* Avance (works for both new and editing) */}
@@ -371,7 +369,7 @@ export function StudentsScreen() {
               value={advance}
               onChangeText={setAdvance}
               keyboardType="numeric"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.textSecondary}
             />
 
             {/* Show remaining */}
@@ -419,12 +417,12 @@ export function StudentsScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Historique : {selectedStudentForHistory?.name}</Text>
               <TouchableOpacity onPress={() => setHistoryModalVisible(false)}>
-                <Text style={styles.closeBtn}>❌</Text>
+                <Text style={styles.closeBtn}>✕</Text>
               </TouchableOpacity>
             </View>
             
             {loadingHistory ? (
-              <ActivityIndicator size="large" color="#4A90D9" style={{ margin: 20 }} />
+              <ActivityIndicator size="large" color={colors.primary} style={{ margin: 20 }} />
             ) : (
               <FlatList
                 data={studentHistory}
@@ -437,7 +435,7 @@ export function StudentsScreen() {
                     {item.description ? <Text style={styles.historyDesc}>{item.description}</Text> : null}
                   </View>
                 )}
-                ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 20 }}>Aucun paiement enregistré.</Text>}
+                ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 20, color: colors.textSecondary }}>Aucun paiement enregistré.</Text>}
               />
             )}
           </View>
@@ -447,10 +445,10 @@ export function StudentsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: colors.background,
   },
   center: {
     flex: 1,
@@ -464,78 +462,100 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 12,
+    paddingBottom: 16,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: colors.text,
   },
   addBtn: {
-    backgroundColor: '#4A90D9',
+    backgroundColor: colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: 12,
   },
   addBtnText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 15,
   },
   searchBar: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     marginHorizontal: 20,
-    marginBottom: 12,
+    marginBottom: 16,
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     fontSize: 15,
     borderWidth: 1,
-    borderColor: '#E8ECF0',
+    borderColor: colors.border,
+    color: colors.text,
   },
   list: {
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: isDark ? 0.3 : 0.05,
+    shadowRadius: 10,
+    elevation: 4,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 12,
   },
   cardName: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: colors.text,
     flex: 1,
   },
   cardActions: {
     flexDirection: 'row',
     gap: 8,
   },
+  historyBtn: {
+    backgroundColor: isDark ? 'rgba(139, 92, 246, 0.15)' : '#F3E8FF',
+    borderRadius: 10,
+    padding: 10,
+  },
+  historyBtnText: {
+    fontSize: 16,
+  },
+  statusBtn: {
+    backgroundColor: isDark ? 'rgba(99, 102, 241, 0.15)' : '#E0E7FF',
+    borderRadius: 10,
+    padding: 10,
+  },
+  statusBtnText: {
+    fontSize: 16,
+  },
   editBtn: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 8,
-    padding: 8,
+    backgroundColor: colors.iconBg,
+    borderRadius: 10,
+    padding: 10,
   },
   editBtnText: {
     fontSize: 16,
   },
   deleteBtn: {
-    backgroundColor: '#FEF2F2',
-    borderRadius: 8,
-    padding: 8,
+    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
+    borderRadius: 10,
+    padding: 10,
   },
   deleteBtnText: {
     fontSize: 16,
@@ -551,231 +571,228 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   cardDetail: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 8,
+    fontSize: 15,
+    color: colors.textSecondary,
+    fontWeight: '500',
   },
   filterContainer: {
     paddingHorizontal: 20,
-    marginBottom: 12,
+    paddingTop: 16,
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#E8ECF0',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 4,
-    marginBottom: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   tab: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 10,
     alignItems: 'center',
     borderRadius: 8,
   },
   activeTab: {
-    backgroundColor: '#fff',
+    backgroundColor: isDark ? colors.border : '#fff',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: isDark ? 0 : 0.1,
     shadowRadius: 2,
     elevation: 2,
   },
   tabText: {
     fontSize: 14,
-    color: '#666',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   activeTabText: {
-    color: '#1A1A2E',
-  },
-  historyBtn: {
-    backgroundColor: '#F3E8FF',
-    borderRadius: 8,
-    padding: 8,
-  },
-  historyBtnText: {
-    fontSize: 16,
-  },
-  statusBtn: {
-    backgroundColor: '#E0E7FF',
-    borderRadius: 8,
-    padding: 8,
-  },
-  statusBtnText: {
-    fontSize: 16,
+    color: colors.text,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: colors.border,
   },
   closeBtn: {
-    fontSize: 20,
+    fontSize: 22,
+    color: colors.textSecondary,
+    padding: 4,
   },
   historyCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    gap: 8,
+    borderBottomColor: colors.border,
+    gap: 12,
   },
   historyDate: {
-    color: '#666',
-    fontSize: 13,
+    color: colors.textSecondary,
+    fontSize: 14,
     flex: 1,
   },
   historyAmount: {
-    color: '#16a34a',
-    fontWeight: 'bold',
-    fontSize: 15,
+    color: colors.success,
+    fontWeight: '700',
+    fontSize: 16,
   },
   historyDesc: {
-    color: '#333',
+    color: colors.textSecondary,
     fontSize: 14,
     fontStyle: 'italic',
   },
   paymentInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 10,
+    marginTop: 16,
+    paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: colors.border,
   },
   paymentItem: {
     alignItems: 'center',
     flex: 1,
   },
   paymentLabel: {
-    fontSize: 11,
-    color: '#94a3b8',
+    fontSize: 12,
+    color: colors.textSecondary,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 6,
+    textTransform: 'uppercase',
   },
   paymentValue: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#1e293b',
+    color: colors.text,
   },
   greenText: {
-    color: '#16a34a',
+    color: colors.success,
   },
   redText: {
-    color: '#dc2626',
+    color: colors.danger,
   },
   badge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
+    borderWidth: 1,
   },
   badgeGreen: {
-    backgroundColor: '#f0fdf4',
+    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#f0fdf4',
+    borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : '#bbf7d0',
   },
   badgeRed: {
-    backgroundColor: '#fef2f2',
+    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : '#fef2f2',
+    borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#fecaca',
   },
   badgeTextGreen: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#16a34a',
+    color: colors.success,
   },
   badgeTextRed: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#dc2626',
+    color: colors.danger,
   },
   emptyText: {
     fontSize: 16,
-    color: '#999',
+    color: colors.textSecondary,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
+    backgroundColor: colors.surface,
+    borderRadius: 24,
     padding: 24,
     maxHeight: '85%',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
-    color: '#1A1A2E',
-    marginBottom: 16,
+    color: colors.text,
+    marginBottom: 20,
   },
   fieldLabel: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#64748b',
-    marginBottom: 4,
-    marginTop: 4,
+    color: colors.textSecondary,
+    marginBottom: 8,
+    marginTop: 8,
   },
   input: {
-    backgroundColor: '#F5F7FA',
+    backgroundColor: colors.background,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
-    marginBottom: 8,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E8ECF0',
-    color: '#333',
+    borderColor: colors.border,
+    color: colors.text,
   },
   remainingBox: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#FFF7ED',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
+    backgroundColor: isDark ? 'rgba(245, 158, 11, 0.1)' : '#FFF7ED',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    marginTop: 8,
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#FED7AA',
   },
   remainingLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#C2410C',
+    color: isDark ? '#FBBF24' : '#C2410C',
   },
   remainingValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#C2410C',
+    color: isDark ? '#FBBF24' : '#C2410C',
   },
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 12,
+    marginTop: 8,
     gap: 12,
   },
   modalBtn: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
   },
   cancelBtn: {
-    backgroundColor: '#F0F0F0',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   cancelBtnText: {
-    color: '#666',
+    color: colors.text,
     fontWeight: '600',
-    fontSize: 15,
+    fontSize: 16,
   },
   saveBtn: {
-    backgroundColor: '#4A90D9',
+    backgroundColor: colors.primary,
   },
   saveBtnText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 15,
+    fontSize: 16,
   },
 });

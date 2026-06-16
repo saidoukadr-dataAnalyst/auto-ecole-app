@@ -3,9 +3,12 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, A
 import { DatabaseService } from '../services/DatabaseService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeColors } from '../theme/colors';
 
 export function StaffScreen() {
   const { t, isRTL } = useLanguage();
+  const { colors, isDark } = useTheme();
   const [staff, setStaff] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
   const [search, setSearch] = useState('');
@@ -148,7 +151,7 @@ export function StaffScreen() {
         <View style={[styles.row, isRTL && styles.rowReverse]}>
           <Text style={styles.cardDetail}>📞 {item.phone || '—'}</Text>
         </View>
-        <View style={[styles.row, isRTL && styles.rowReverse]}>
+        <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 4 }]}>
           <Text style={styles.cardDetail}>💼 {item.role}</Text>
         </View>
 
@@ -167,10 +170,12 @@ export function StaffScreen() {
     );
   };
 
+  const styles = getStyles(colors, isDark);
+
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#4A90D9" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -186,13 +191,15 @@ export function StaffScreen() {
       </View>
 
       {/* Search */}
-      <TextInput
-        style={[styles.searchBar, isRTL && styles.textRight]}
-        placeholder={`🔍 ${t('search')}...`}
-        value={search}
-        onChangeText={setSearch}
-        placeholderTextColor="#999"
-      />
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={[styles.searchBar, isRTL && styles.textRight]}
+          placeholder={`🔍 ${t('search')}...`}
+          value={search}
+          onChangeText={setSearch}
+          placeholderTextColor={colors.textSecondary}
+        />
+      </View>
 
       {/* List */}
       <FlatList
@@ -200,7 +207,7 @@ export function StaffScreen() {
         keyExtractor={(item) => String(item.id)}
         renderItem={renderStaff}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#4A90D9']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
         ListEmptyComponent={
           <View style={styles.center}>
             <Text style={styles.emptyText}>{t('no_staff')}</Text>
@@ -223,6 +230,7 @@ export function StaffScreen() {
                 value={name}
                 onChangeText={setName}
                 placeholder="Nom complet"
+                placeholderTextColor={colors.textSecondary}
               />
 
               <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('phone_optional')}</Text>
@@ -232,6 +240,7 @@ export function StaffScreen() {
                 onChangeText={setPhone}
                 placeholder="0600000000"
                 keyboardType="phone-pad"
+                placeholderTextColor={colors.textSecondary}
               />
 
               <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('role')}</Text>
@@ -240,6 +249,7 @@ export function StaffScreen() {
                 value={role}
                 onChangeText={setRole}
                 placeholder="Moniteur, Secrétaire..."
+                placeholderTextColor={colors.textSecondary}
               />
 
               <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('base_salary')}</Text>
@@ -249,6 +259,7 @@ export function StaffScreen() {
                 onChangeText={setBaseSalary}
                 placeholder="0.00"
                 keyboardType="numeric"
+                placeholderTextColor={colors.textSecondary}
               />
             </ScrollView>
 
@@ -277,10 +288,10 @@ export function StaffScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: colors.background,
   },
   center: {
     flex: 1,
@@ -294,60 +305,69 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 12,
+    paddingBottom: 16,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: colors.text,
   },
   addBtn: {
-    backgroundColor: '#4A90D9',
+    backgroundColor: colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: 12,
   },
   addBtnText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 15,
+  },
+  searchContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
   },
   searchBar: {
-    backgroundColor: '#fff',
-    marginHorizontal: 20,
-    marginBottom: 12,
+    backgroundColor: colors.surface,
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     fontSize: 15,
     borderWidth: 1,
-    borderColor: '#E8ECF0',
+    borderColor: colors.border,
+    color: colors.text,
   },
   list: {
     paddingHorizontal: 20,
+    paddingTop: 16,
     paddingBottom: 20,
   },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: isDark ? 0.3 : 0.05,
+    shadowRadius: 10,
+    elevation: 4,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 12,
   },
   cardName: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: colors.text,
     flex: 1,
   },
   cardActions: {
@@ -355,17 +375,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   editBtn: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 8,
-    padding: 8,
+    backgroundColor: colors.iconBg,
+    borderRadius: 10,
+    padding: 10,
   },
   editBtnText: {
     fontSize: 16,
   },
   deleteBtn: {
-    backgroundColor: '#FEF2F2',
-    borderRadius: 8,
-    padding: 8,
+    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
+    borderRadius: 10,
+    padding: 10,
   },
   deleteBtnText: {
     fontSize: 16,
@@ -381,102 +401,108 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   cardDetail: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 15,
+    color: colors.textSecondary,
+    fontWeight: '500',
     marginTop: 2,
   },
   paymentInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 10,
+    marginTop: 16,
+    paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: colors.border,
   },
   paymentItem: {
     alignItems: 'center',
     flex: 1,
   },
   paymentLabel: {
-    fontSize: 11,
-    color: '#94a3b8',
+    fontSize: 12,
+    color: colors.textSecondary,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 6,
+    textTransform: 'uppercase',
   },
   paymentValue: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#1e293b',
+    color: colors.text,
   },
   greenText: {
-    color: '#16a34a',
+    color: colors.success,
   },
   emptyText: {
     fontSize: 16,
-    color: '#999',
+    color: colors.textSecondary,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
+    backgroundColor: colors.surface,
+    borderRadius: 24,
     padding: 24,
     maxHeight: '85%',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
-    color: '#1A1A2E',
-    marginBottom: 16,
+    color: colors.text,
+    marginBottom: 20,
   },
   fieldLabel: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#64748b',
-    marginBottom: 4,
-    marginTop: 4,
+    color: colors.textSecondary,
+    marginBottom: 8,
+    marginTop: 8,
   },
   input: {
-    backgroundColor: '#F5F7FA',
+    backgroundColor: colors.background,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
-    marginBottom: 8,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E8ECF0',
-    color: '#333',
+    borderColor: colors.border,
+    color: colors.text,
   },
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 12,
+    marginTop: 16,
     gap: 12,
   },
   modalBtn: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
   },
   cancelBtn: {
-    backgroundColor: '#F0F0F0',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   cancelBtnText: {
-    color: '#666',
+    color: colors.text,
     fontWeight: '600',
-    fontSize: 15,
+    fontSize: 16,
   },
   saveBtn: {
-    backgroundColor: '#4A90D9',
+    backgroundColor: colors.primary,
   },
   saveBtnText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 15,
+    fontSize: 16,
   },
 });

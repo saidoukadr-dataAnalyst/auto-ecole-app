@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, SectionList, ActivityIndicator, RefreshControl,
 import { DatabaseService } from '../services/DatabaseService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeColors } from '../theme/colors';
 
 interface Transaction {
   id: number;
@@ -22,6 +24,7 @@ interface MonthSection {
 
 export function HistoryScreen() {
   const { t, isRTL } = useLanguage();
+  const { colors, isDark } = useTheme();
   const [sections, setSections] = useState<MonthSection[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -120,8 +123,10 @@ export function HistoryScreen() {
   const renderTransaction = ({ item }: { item: Transaction }) => {
     const isIncome = item.type === 'INCOME';
     const icon = isIncome ? '⬆️' : '⬇️';
-    const amountColor = isIncome ? '#16a34a' : '#dc2626';
+    const amountColor = isIncome ? colors.success : colors.danger;
     const prefix = isIncome ? '+' : '-';
+    
+    const iconBgColor = isIncome ? (isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7') : (isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2');
 
     return (
       <TouchableOpacity 
@@ -129,7 +134,7 @@ export function HistoryScreen() {
         onLongPress={() => handleDeleteTransaction(item)}
         delayLongPress={500}
       >
-        <View style={[styles.iconContainer, { backgroundColor: isIncome ? '#dcfce7' : '#fee2e2' }]}>
+        <View style={[styles.iconContainer, { backgroundColor: iconBgColor }]}>
           <Text style={styles.icon}>{icon}</Text>
         </View>
 
@@ -165,15 +170,15 @@ export function HistoryScreen() {
         <View style={[styles.sectionStats, isRTL && styles.rowRTL]}>
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>{t('income_label') || 'Entrées'}</Text>
-            <Text style={[styles.statValue, { color: '#16a34a' }]}>+{section.income.toFixed(0)} DH</Text>
+            <Text style={[styles.statValue, { color: colors.success }]}>+{section.income.toFixed(0)} DH</Text>
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>{t('expense_label') || 'Sorties'}</Text>
-            <Text style={[styles.statValue, { color: '#dc2626' }]}>-{section.expense.toFixed(0)} DH</Text>
+            <Text style={[styles.statValue, { color: colors.danger }]}>-{section.expense.toFixed(0)} DH</Text>
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>{t('profit_label') || 'Bénéfice'}</Text>
-            <Text style={[styles.statValue, { color: net >= 0 ? '#2563eb' : '#dc2626' }]}>
+            <Text style={[styles.statValue, { color: net >= 0 ? colors.primary : colors.danger }]}>
               {net >= 0 ? '+' : ''}{net.toFixed(0)} DH
             </Text>
           </View>
@@ -192,10 +197,12 @@ export function HistoryScreen() {
     );
   };
 
+  const styles = getStyles(colors, isDark);
+
   if (loading) {
     return (
       <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -225,8 +232,8 @@ export function HistoryScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#6366f1']}
-            tintColor="#6366f1"
+            colors={[colors.primary]}
+            tintColor={colors.primary}
           />
         }
       />
@@ -234,24 +241,24 @@ export function HistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background,
   },
   loaderContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background,
   },
   header: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 12,
-    backgroundColor: '#ffffff',
+    paddingBottom: 16,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: colors.border,
   },
   headerRTL: {
     alignItems: 'flex-end',
@@ -259,51 +266,55 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.text,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#94a3b8',
-    marginTop: 2,
+    color: colors.textSecondary,
+    marginTop: 4,
   },
   listContent: {
     padding: 16,
-    gap: 10,
+    gap: 12,
   },
   emptyList: {
     flex: 1,
   },
   card: {
     flexDirection: 'row',
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    padding: 14,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: isDark ? 0.3 : 0.05,
+    shadowRadius: 8,
     elevation: 2,
   },
   cardRTL: {
     flexDirection: 'row-reverse',
   },
   iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
   icon: {
-    fontSize: 20,
+    fontSize: 22,
   },
   cardContent: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 16,
+    justifyContent: 'center',
   },
   cardContentRTL: {
     marginLeft: 0,
-    marginRight: 12,
+    marginRight: 16,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -317,7 +328,7 @@ const styles = StyleSheet.create({
   categoryName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.text,
     flex: 1,
     marginRight: 8,
   },
@@ -327,12 +338,13 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 14,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginBottom: 6,
   },
   date: {
-    fontSize: 12,
-    color: '#94a3b8',
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '500',
   },
   textRTL: {
     textAlign: 'right',
@@ -348,39 +360,45 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#94a3b8',
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   sectionHeaderContainer: {
     marginTop: 16,
-    marginBottom: 8,
-    backgroundColor: '#f1f5f9',
-    borderRadius: 12,
-    padding: 12,
+    marginBottom: 12,
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 8,
+    color: colors.text,
+    marginBottom: 12,
   },
   sectionStats: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    padding: 10,
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   statItem: {
     alignItems: 'center',
   },
   statLabel: {
     fontSize: 12,
-    color: '#64748b',
-    marginBottom: 2,
+    color: colors.textSecondary,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    fontWeight: '600',
   },
   statValue: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
   },
 });

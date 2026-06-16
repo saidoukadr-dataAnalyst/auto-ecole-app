@@ -13,6 +13,31 @@ const STORE_KEY_USER_PIN = "APP_USER_PIN";
 export class SecurityService {
   
   /**
+   * Wrapper pour supporter le Web (localStorage) en plus de iOS/Android (SecureStore)
+   */
+  private static async setItemSafe(key: string, value: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      try {
+        localStorage.setItem(key, value);
+      } catch (e) {}
+    } else {
+      await SecureStore.setItemAsync(key, value);
+    }
+  }
+
+  private static async getItemSafe(key: string): Promise<string | null> {
+    if (Platform.OS === 'web') {
+      try {
+        return localStorage.getItem(key);
+      } catch (e) {
+        return null;
+      }
+    } else {
+      return await SecureStore.getItemAsync(key);
+    }
+  }
+
+  /**
    * Récupère l'identifiant matériel unique de l'appareil (Alternative à l'adresse MAC).
    * Retourne androidId sur Android, et identifierForVendor sur iOS.
    */
@@ -25,10 +50,10 @@ export class SecurityService {
     }
     
     if (!id || id.includes('UNKNOWN')) {
-      id = await SecureStore.getItemAsync('APP_GENERATED_DEVICE_ID');
+      id = await this.getItemSafe('APP_GENERATED_DEVICE_ID');
       if (!id) {
         id = Crypto.randomUUID();
-        await SecureStore.setItemAsync('APP_GENERATED_DEVICE_ID', id);
+        await this.setItemSafe('APP_GENERATED_DEVICE_ID', id);
       }
     }
     return id;
@@ -43,8 +68,6 @@ export class SecurityService {
     for (let i = 0; i < bytes.byteLength; i++) {
       binary += String.fromCharCode(bytes[i]);
     }
-    // Convert to base64 using a polyfill or global atob/btoa if available in RN
-    // In React Native, btoa is not available globally by default, so we use a custom base64 encoder
     const base64 = this.customBtoa(binary);
     return base64.replace(/\+/g, 'A').replace(/\//g, 'B').replace(/=+$/, '').substring(0, 16).toUpperCase();
   }
@@ -93,8 +116,8 @@ export class SecurityService {
     const isValid = inputKey.trim().toUpperCase() === expectedKey;
     
     if (isValid) {
-      // Sauvegarder l'état d'activation dans le stockage sécurisé (chiffré)
-      await SecureStore.setItemAsync(STORE_KEY_ACTIVATED, "TRUE");
+      // Sauvegarder l'état d'activation
+      await this.setItemSafe(STORE_KEY_ACTIVATED, "TRUE");
     }
     return isValid;
   }
@@ -111,7 +134,7 @@ export class SecurityService {
    * Vérifie si l'application a déjà été activée par une licence valide.
    */
   static async isAppActivated(): Promise<boolean> {
-    const status = await SecureStore.getItemAsync(STORE_KEY_ACTIVATED);
+    const status = await this.getItemSafe(STORE_KEY_ACTIVATED);
     return status === "TRUE";
   }
 
@@ -119,14 +142,14 @@ export class SecurityService {
    * Sauvegarde le PIN/Mot de passe de l'utilisateur.
    */
   static async saveUserPin(pin: string): Promise<void> {
-    await SecureStore.setItemAsync(STORE_KEY_USER_PIN, pin);
+    await this.setItemSafe(STORE_KEY_USER_PIN, pin);
   }
 
   /**
    * Vérifie si le PIN saisi correspond au PIN sauvegardé.
    */
   static async verifyUserPin(inputPin: string): Promise<boolean> {
-    const savedPin = await SecureStore.getItemAsync(STORE_KEY_USER_PIN);
+    const savedPin = await this.getItemSafe(STORE_KEY_USER_PIN);
     return inputPin === savedPin;
   }
 
@@ -134,7 +157,7 @@ export class SecurityService {
    * Vérifie si un PIN est configuré.
    */
   static async hasUserPin(): Promise<boolean> {
-    const savedPin = await SecureStore.getItemAsync(STORE_KEY_USER_PIN);
+    const savedPin = await this.getItemSafe(STORE_KEY_USER_PIN);
     return savedPin !== null && savedPin !== undefined;
   }
 }

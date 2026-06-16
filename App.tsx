@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SecurityService } from './src/services/SecurityService';
 import { DatabaseService } from './src/services/DatabaseService';
 import { LanguageProvider } from './src/services/i18n';
+import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 
 // Écrans
 import { ActivationScreen } from './src/screens/ActivationScreen';
@@ -23,10 +24,11 @@ import { SettingsScreen } from './src/screens/SettingsScreen';
 
 const Stack = createNativeStackNavigator();
 
-export default function App() {
+function AppContent() {
   const [isReady, setIsReady] = useState(false);
   const [isActivated, setIsActivated] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
+  const { colors, isDark } = useTheme();
 
   useEffect(() => {
     async function initApp() {
@@ -45,8 +47,8 @@ export default function App() {
 
   if (!isReady) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#2563eb" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -59,7 +61,21 @@ export default function App() {
   } else {
     content = (
       <NavigationContainer>
-        <Stack.Navigator initialRouteName="Dashboard">
+        <Stack.Navigator 
+          initialRouteName="Dashboard"
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: colors.surface,
+            },
+            headerTintColor: colors.text,
+            headerTitleStyle: {
+              fontWeight: '600',
+            },
+            contentStyle: {
+              backgroundColor: colors.background,
+            }
+          }}
+        >
           <Stack.Screen name="Dashboard" component={DashboardScreen} options={{ headerShown: false }} />
           <Stack.Screen name="Students" component={StudentsScreen} options={{ title: 'Élèves' }} />
           <Stack.Screen name="Vehicles" component={VehiclesScreen} options={{ title: 'Véhicules' }} />
@@ -79,9 +95,19 @@ export default function App() {
   }
 
   return (
-    <LanguageProvider>
-      <StatusBar style="dark" translucent={false} backgroundColor="#F0F4FF" />
+    <>
+      <StatusBar style={isDark ? "light" : "dark"} translucent={false} backgroundColor={colors.surface} />
       {content}
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <LanguageProvider>
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
     </LanguageProvider>
   );
 }

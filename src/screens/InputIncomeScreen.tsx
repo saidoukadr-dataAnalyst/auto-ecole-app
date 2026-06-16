@@ -3,6 +3,8 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 
 import { DatabaseService } from '../services/DatabaseService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeColors } from '../theme/colors';
 
 interface Category {
   id: number;
@@ -21,6 +23,7 @@ interface Props {
 
 export function InputIncomeScreen({ onSaveSuccess, onCancel }: Props) {
   const { t, isRTL } = useLanguage();
+  const { colors, isDark } = useTheme();
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
@@ -85,6 +88,8 @@ export function InputIncomeScreen({ onSaveSuccess, onCancel }: Props) {
     setSelectedStudentId((prev) => (prev === id ? null : id));
   };
 
+  const styles = getStyles(colors, isDark);
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled">
       {/* Amount */}
@@ -96,7 +101,7 @@ export function InputIncomeScreen({ onSaveSuccess, onCancel }: Props) {
             value={amount}
             onChangeText={setAmount}
             placeholder="0.00"
-            placeholderTextColor="#86efac"
+            placeholderTextColor={isDark ? "rgba(16, 185, 129, 0.4)" : "#86efac"}
             keyboardType="numeric"
           />
           <Text style={styles.currency}>DH</Text>
@@ -111,7 +116,7 @@ export function InputIncomeScreen({ onSaveSuccess, onCancel }: Props) {
         <TextInput
           style={[styles.searchInput, isRTL && styles.textRTL]}
           placeholder={t('search') ?? 'Rechercher un élève...'}
-          placeholderTextColor="#94a3b8"
+          placeholderTextColor={colors.textSecondary}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
@@ -145,7 +150,7 @@ export function InputIncomeScreen({ onSaveSuccess, onCancel }: Props) {
           value={description}
           onChangeText={setDescription}
           placeholder={t('description_placeholder') ?? ''}
-          placeholderTextColor="#94a3b8"
+          placeholderTextColor={colors.textSecondary}
           multiline
           numberOfLines={3}
           textAlignVertical="top"
@@ -170,10 +175,10 @@ export function InputIncomeScreen({ onSaveSuccess, onCancel }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background,
   },
   contentContainer: {
     padding: 20,
@@ -185,23 +190,23 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textSecondary,
     marginBottom: 8,
   },
   optional: {
     fontWeight: '400',
-    color: '#94a3b8',
+    color: colors.textSecondary,
     fontSize: 13,
   },
   amountRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderWidth: 2,
-    borderColor: '#bbf7d0',
+    borderColor: isDark ? 'rgba(16, 185, 129, 0.4)' : '#bbf7d0',
   },
   rowRTL: {
     flexDirection: 'row-reverse',
@@ -210,24 +215,24 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 36,
     fontWeight: '700',
-    color: '#16a34a',
+    color: colors.success,
   },
   currency: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#94a3b8',
+    color: colors.textSecondary,
     marginLeft: 8,
   },
   searchInput: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontSize: 15,
     marginBottom: 12,
-    color: '#1e293b',
+    color: colors.text,
   },
   chipContainer: {
     flexDirection: 'row',
@@ -241,36 +246,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9',
     borderWidth: 1.5,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   chipSelectedIncome: {
-    backgroundColor: '#f0fdf4',
-    borderColor: '#16a34a',
+    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4',
+    borderColor: colors.success,
   },
   chipText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#475569',
+    color: colors.textSecondary,
   },
   chipTextSelectedIncome: {
-    color: '#16a34a',
+    color: colors.success,
     fontWeight: '600',
   },
   emptyChipText: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: colors.textSecondary,
     fontStyle: 'italic',
   },
   textArea: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 14,
     fontSize: 15,
-    color: '#1e293b',
+    color: colors.text,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     minHeight: 90,
   },
   buttonRow: {
@@ -282,14 +287,16 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 16,
     borderRadius: 14,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   saveButton: {
     flex: 1,
@@ -299,7 +306,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveButtonIncome: {
-    backgroundColor: '#16a34a',
+    backgroundColor: colors.success,
   },
   saveButtonText: {
     fontSize: 16,

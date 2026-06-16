@@ -3,11 +3,14 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput,
 import { SecurityService } from '../services/SecurityService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeColors } from '../theme/colors';
 
 type PinMode = 'VERIFY' | 'CREATE' | 'RECOVERY';
 
 export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
   const { t, isRTL } = useLanguage();
+  const { colors, isDark } = useTheme();
   const [mode, setMode] = useState<PinMode>('VERIFY');
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
@@ -48,7 +51,7 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
   const animateDot = (index: number) => {
     Animated.sequence([
       Animated.timing(dotScales[index], {
-        toValue: 1.4,
+        toValue: 1.5,
         duration: 100,
         useNativeDriver: true,
       }),
@@ -161,11 +164,16 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
     }
   };
 
+  const styles = getStyles(colors, isDark);
+  const statusBarStyle = isDark ? "light-content" : "dark-content";
+  // Distinct color for status bar background
+  const statusBarColor = isDark ? '#111827' : '#E2E8F0';
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <StatusBar barStyle="dark-content" backgroundColor="#F0F4FF" />
-        <ActivityIndicator size="large" color="#4A90D9" />
+        <StatusBar barStyle={statusBarStyle} backgroundColor={statusBarColor} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -173,7 +181,7 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
   if (mode === 'RECOVERY') {
     return (
       <View style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#F0F4FF" />
+        <StatusBar barStyle={statusBarStyle} backgroundColor={statusBarColor} />
         <View style={styles.content}>
           <View style={styles.lockIconContainer}>
             <Text style={styles.lockIcon}>🔑</Text>
@@ -189,7 +197,7 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
           <TextInput
             style={styles.recoveryInput}
             placeholder={t('recovery_key')}
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={colors.textSecondary}
             value={recoveryKey}
             onChangeText={setRecoveryKey}
             autoCapitalize="characters"
@@ -233,9 +241,8 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F0F4FF" />
+      <StatusBar barStyle={statusBarStyle} backgroundColor={statusBarColor} />
 
-      {/* Top section with icon and title */}
       <View style={styles.topSection}>
         <View style={styles.lockIconContainer}>
           <Text style={styles.lockIcon}>🔐</Text>
@@ -258,7 +265,6 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
         </Animated.View>
       </View>
 
-      {/* Bottom section with keypad */}
       <View style={styles.bottomSection}>
         <View style={styles.keypadCard}>
           <View style={styles.keypad}>
@@ -295,7 +301,7 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
             ))}
           </View>
 
-          {/* Unlock button */}
+          {/* Explicit Unlock Button */}
           {mode === 'VERIFY' && (
             <TouchableOpacity
               style={[styles.unlockButton, currentPinLength < 4 && styles.unlockButtonDisabled]}
@@ -303,7 +309,7 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
               disabled={currentPinLength < 4}
               activeOpacity={0.8}
             >
-              <Text style={styles.unlockButtonText}>🔓  Déverrouiller</Text>
+              <Text style={styles.unlockButtonText}>🔓  {t('unlock') || 'Déverrouiller'}</Text>
             </TouchableOpacity>
           )}
 
@@ -318,16 +324,16 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F0F4FF',
+    backgroundColor: isDark ? '#111827' : '#E2E8F0', // Distinct background
   },
   container: {
     flex: 1,
-    backgroundColor: '#F0F4FF',
+    backgroundColor: isDark ? '#111827' : '#E2E8F0', // Distinct elegant background for the whole page
   },
   content: {
     flex: 1,
@@ -337,40 +343,44 @@ const styles = StyleSheet.create({
   },
   topSection: {
     alignItems: 'center',
-    paddingTop: 60,
+    paddingTop: 80,
     paddingBottom: 20,
   },
   lockIconContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#E8F0FE',
+    backgroundColor: isDark ? 'rgba(79, 70, 229, 0.2)' : '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
-    shadowColor: '#4A90D9',
+    shadowColor: isDark ? '#4F46E5' : '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: isDark ? 0.3 : 0.1,
     shadowRadius: 12,
     elevation: 6,
+    borderWidth: isDark ? 1 : 0,
+    borderColor: 'rgba(79, 70, 229, 0.4)',
   },
   lockIcon: {
     fontSize: 36,
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '800',
-    color: '#1A1A2E',
+    color: isDark ? '#ffffff' : '#0f172a',
     textAlign: 'center',
     marginBottom: 8,
+    letterSpacing: 0.5,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#64748b',
+    fontSize: 15,
+    color: isDark ? '#9ca3af' : '#64748b',
     textAlign: 'center',
-    marginBottom: 28,
+    marginBottom: 32,
     lineHeight: 20,
     paddingHorizontal: 16,
+    fontWeight: '500',
   },
   dotsContainer: {
     flexDirection: 'row',
@@ -381,81 +391,88 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
   },
   dot: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2.5,
-    borderColor: '#C8D6E5',
-    backgroundColor: 'transparent',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: isDark ? '#4b5563' : '#cbd5e1',
+    backgroundColor: isDark ? '#1f2937' : '#ffffff',
   },
   dotFilled: {
-    backgroundColor: '#4A90D9',
-    borderColor: '#4A90D9',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    elevation: 4,
   },
   bottomSection: {
     flex: 1,
     justifyContent: 'flex-end',
-    paddingBottom: 30,
-    paddingHorizontal: 20,
+    paddingBottom: 40,
+    paddingHorizontal: 16,
   },
   keypadCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 28,
-    paddingVertical: 24,
+    backgroundColor: colors.surface,
+    borderRadius: 32,
+    paddingVertical: 32,
     paddingHorizontal: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOpacity: isDark ? 0.4 : 0.08,
+    shadowRadius: 24,
+    elevation: 10,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
   },
   keypad: {
-    width: 260,
-    gap: 12,
+    width: 280,
+    gap: 16,
   },
   keypadRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   keyButton: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#F5F7FA',
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E8ECF0',
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0',
   },
   keyEmpty: {
-    width: 72,
-    height: 72,
+    width: 76,
+    height: 76,
   },
   keyText: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '600',
-    color: '#1A1A2E',
+    color: colors.text,
   },
   keyBackspace: {
-    fontSize: 22,
-    color: '#94a3b8',
+    fontSize: 24,
+    color: colors.textSecondary,
   },
   unlockButton: {
     width: '100%',
-    backgroundColor: '#4A90D9',
-    paddingVertical: 16,
+    backgroundColor: colors.primary,
+    paddingVertical: 18,
     borderRadius: 16,
     alignItems: 'center',
-    marginTop: 16,
-    shadowColor: '#4A90D9',
+    marginTop: 24,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.4,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 6,
   },
   unlockButtonDisabled: {
-    backgroundColor: '#B0C8E8',
+    backgroundColor: isDark ? '#374151' : '#cbd5e1',
     shadowOpacity: 0,
     elevation: 0,
   },
@@ -463,59 +480,64 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 17,
     fontWeight: '700',
+    letterSpacing: 0.5,
   },
   forgotLink: {
-    marginTop: 16,
-    padding: 6,
+    marginTop: 20,
+    padding: 8,
   },
   forgotLinkText: {
-    color: '#4A90D9',
-    fontSize: 14,
+    color: colors.primary,
+    fontSize: 15,
     fontWeight: '600',
   },
   deviceCodeContainer: {
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingHorizontal: 24,
-    backgroundColor: '#FEF2F2',
-    borderRadius: 14,
+    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : '#FEF2F2',
+    borderRadius: 16,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#FECACA',
     alignItems: 'center',
+    width: '100%',
   },
   deviceCodeLabel: {
-    fontSize: 11,
-    color: '#94a3b8',
+    fontSize: 12,
+    color: isDark ? '#fca5a5' : '#94a3b8',
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   deviceCode: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#DC2626',
+    color: colors.danger,
     textAlign: 'center',
+    letterSpacing: 1,
   },
   recoveryInput: {
     width: '100%',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
-    padding: 16,
-    fontSize: 16,
-    color: '#1A1A2E',
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderRadius: 16,
+    padding: 18,
+    fontSize: 18,
+    color: colors.text,
     textAlign: 'center',
-    marginBottom: 20,
-    backgroundColor: '#ffffff',
+    marginBottom: 24,
+    backgroundColor: colors.surface,
+    fontWeight: '600',
+    letterSpacing: 2,
   },
   cancelLink: {
-    marginTop: 20,
-    padding: 10,
+    marginTop: 24,
+    padding: 12,
   },
   cancelLinkText: {
-    color: '#4A90D9',
-    fontSize: 15,
+    color: colors.primary,
+    fontSize: 16,
     fontWeight: '600',
   },
 });

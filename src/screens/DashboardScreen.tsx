@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'rea
 import { DatabaseService } from '../services/DatabaseService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeColors } from '../theme/colors';
 
 interface AlertItem {
   id: string;
@@ -17,6 +19,7 @@ type DashboardProps = {
 
 export const DashboardScreen = ({ navigation }: DashboardProps) => {
   const { t, lang, setLang, isRTL } = useLanguage();
+  const { colors, isDark, toggleTheme } = useTheme();
 
   const [period, setPeriod] = useState<'TODAY' | 'WEEK' | 'MONTH' | 'YEAR'>('MONTH');
   const [kpi, setKpi] = useState({ income: 0, expense: 0, net: 0 });
@@ -106,12 +109,18 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
     { screen: 'Settings', icon: '⚙️', label: t('menu_settings') },
   ];
 
+  const styles = getStyles(colors, isDark, isRTL);
+
   return (
     <View style={styles.container}>
       {/* HEADER */}
       <View style={[styles.header, isRTL && styles.rtlRow]}>
         <Text style={styles.headerTitle}>{t('app_name')}</Text>
         <View style={styles.headerRight}>
+          <TouchableOpacity style={styles.themeToggle} onPress={toggleTheme}>
+            <Text style={styles.themeToggleText}>{isDark ? '☀️' : '🌙'}</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.bellIcon} onPress={() => setShowAlertsModal(true)}>
             <Text style={styles.bellText}>🔔</Text>
             {alerts.length > 0 && (
@@ -155,19 +164,19 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
         <View style={styles.kpiGrid}>
           <View style={[styles.kpiCard, styles.kpiIncome]}>
             <Text style={[styles.kpiLabel, isRTL && styles.rtlText]}>{t('kpi_income')}</Text>
-            <Text style={[styles.kpiValue, isRTL && styles.rtlText]}>
+            <Text style={[styles.kpiValue, isRTL && styles.rtlText, styles.textSuccess]}>
               + {kpi.income.toLocaleString()} DH
             </Text>
           </View>
           <View style={[styles.kpiCard, styles.kpiExpense]}>
             <Text style={[styles.kpiLabel, isRTL && styles.rtlText]}>{t('kpi_expense')}</Text>
-            <Text style={[styles.kpiValue, isRTL && styles.rtlText]}>
+            <Text style={[styles.kpiValue, isRTL && styles.rtlText, styles.textDanger]}>
               - {kpi.expense.toLocaleString()} DH
             </Text>
           </View>
           <View style={[styles.kpiCard, styles.kpiNet]}>
             <Text style={[styles.kpiLabel, isRTL && styles.rtlText]}>{t('kpi_net_profit')}</Text>
-            <Text style={[styles.kpiValue, isRTL && styles.rtlText]}>
+            <Text style={[styles.kpiValue, isRTL && styles.rtlText, styles.textPrimary]}>
               {kpi.net.toLocaleString()} DH
             </Text>
           </View>
@@ -181,7 +190,9 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
               style={styles.menuItem}
               onPress={() => navigation.navigate(item.screen)}
             >
-              <Text style={styles.menuIcon}>{item.icon}</Text>
+              <View style={styles.menuIconContainer}>
+                <Text style={styles.menuIcon}>{item.icon}</Text>
+              </View>
               <Text style={styles.menuText}>{item.label}</Text>
             </TouchableOpacity>
           ))}
@@ -208,7 +219,7 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
                     <Text style={[styles.activityTitle, isRTL && styles.rtlText]}>{act.category_name}</Text>
                     <Text style={[styles.activitySubtitle, isRTL && styles.rtlText]}>{act.description || '—'}</Text>
                   </View>
-                  <Text style={[styles.activityAmount, act.type === 'INCOME' ? styles.textGreen : styles.textRed]}>
+                  <Text style={[styles.activityAmount, act.type === 'INCOME' ? styles.textSuccess : styles.textDanger]}>
                     {act.type === 'INCOME' ? '+' : '-'}{act.amount} DH
                   </Text>
                 </View>
@@ -317,10 +328,10 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ThemeColors, isDark: boolean, isRTL: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.background,
   },
   rtlRow: {
     flexDirection: 'row-reverse',
@@ -337,11 +348,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 12,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+  },
+  themeToggle: {
+    padding: 6,
+  },
+  themeToggleText: {
+    fontSize: 20,
   },
   bellIcon: {
     position: 'relative',
@@ -354,13 +374,15 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     right: 0,
-    backgroundColor: '#ef4444',
+    backgroundColor: colors.danger,
     borderRadius: 10,
     minWidth: 18,
     height: 18,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: colors.surface,
   },
   badgeText: {
     color: '#fff',
@@ -370,38 +392,45 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#0f172a',
+    color: colors.text,
   },
   langToggle: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.background,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   langToggleText: {
     fontWeight: 'bold',
-    color: '#334155',
+    color: colors.textSecondary,
   },
 
   // Filter chips
   filterContainer: {
     flexDirection: 'row',
     padding: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   filterChip: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   filterChipActive: {
-    backgroundColor: '#1e293b',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   filterText: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   filterTextActive: {
@@ -420,21 +449,22 @@ const styles = StyleSheet.create({
   },
   alertBanner: {
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
+    marginBottom: 8,
   },
   alertDanger: {
-    backgroundColor: '#fef2f2',
-    borderColor: '#f87171',
+    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : '#fef2f2',
+    borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#f87171',
   },
   alertWarning: {
-    backgroundColor: '#fffbeb',
-    borderColor: '#fbbf24',
+    backgroundColor: isDark ? 'rgba(245, 158, 11, 0.1)' : '#fffbeb',
+    borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#fbbf24',
   },
   alertText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.text,
   },
 
   // KPI
@@ -444,36 +474,41 @@ const styles = StyleSheet.create({
   },
   kpiCard: {
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    elevation: 1,
     shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
+    shadowOpacity: isDark ? 0.2 : 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   kpiIncome: {
-    backgroundColor: '#f0fdf4',
-    borderColor: '#bbf7d0',
+    backgroundColor: isDark ? '#112211' : '#f0fdf4',
+    borderColor: isDark ? '#14532d' : '#bbf7d0',
   },
   kpiExpense: {
-    backgroundColor: '#fef2f2',
-    borderColor: '#fecaca',
+    backgroundColor: isDark ? '#2a1111' : '#fef2f2',
+    borderColor: isDark ? '#7f1d1d' : '#fecaca',
   },
   kpiNet: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
+    backgroundColor: isDark ? '#111827' : '#eff6ff',
+    borderColor: isDark ? '#1e3a8a' : '#bfdbfe',
   },
   kpiLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#64748b',
-    marginBottom: 4,
+    color: colors.textSecondary,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   kpiValue: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
-    color: '#0f172a',
   },
+  textSuccess: { color: colors.success },
+  textDanger: { color: colors.danger },
+  textPrimary: { color: colors.primary },
 
   // Menu grid
   menuGrid: {
@@ -484,101 +519,116 @@ const styles = StyleSheet.create({
   },
   menuItem: {
     width: '48%',
-    backgroundColor: '#ffffff',
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    padding: 20,
+    borderRadius: 16,
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOpacity: isDark ? 0.3 : 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  menuIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.iconBg,
+    justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    shadowOffset: { width: 0, height: 1 },
   },
   menuIcon: {
     fontSize: 24,
-    marginBottom: 8,
   },
   menuText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.text,
   },
 
   // Recent Activity
   recentActivityContainer: {
-    backgroundColor: '#ffffff',
-    padding: 16,
-    borderRadius: 12,
-    elevation: 1,
+    backgroundColor: colors.surface,
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOpacity: isDark ? 0.2 : 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: 12,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0f172a',
+    fontWeight: '700',
+    color: colors.text,
   },
   linkText: {
-    color: '#2563eb',
+    color: colors.primary,
     fontWeight: '600',
   },
   activityList: {
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   emptyActivityText: {
     textAlign: 'center',
-    color: '#94a3b8',
+    color: colors.textSecondary,
     fontStyle: 'italic',
+    paddingVertical: 20,
   },
   activityItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   activityIconWrapper: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
-  bgGreenLight: { backgroundColor: '#dcfce7' },
-  bgRedLight: { backgroundColor: '#fee2e2' },
+  bgGreenLight: { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7' },
+  bgRedLight: { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2' },
   activityIcon: { fontSize: 18, fontWeight: 'bold' },
   activityDetails: { flex: 1 },
-  rtlDetails: { marginRight: 12, marginLeft: 0 },
-  activityTitle: { fontSize: 15, fontWeight: '600', color: '#1e293b' },
-  activitySubtitle: { fontSize: 12, color: '#64748b', marginTop: 2 },
+  rtlDetails: { marginRight: 16, marginLeft: 0 },
+  activityTitle: { fontSize: 16, fontWeight: '600', color: colors.text },
+  activitySubtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
   activityAmount: { fontSize: 16, fontWeight: '700' },
-  textGreen: { color: '#16a34a' },
-  textRed: { color: '#dc2626' },
 
   // FAB
   fab: {
     position: 'absolute',
     bottom: 24,
     right: 24,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#2563eb',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#2563eb',
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    elevation: 5,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
   },
   fabIcon: {
@@ -591,66 +641,76 @@ const styles = StyleSheet.create({
   // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: colors.overlay,
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 12,
-    paddingBottom: 34,
-    paddingHorizontal: 16,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 16,
+    paddingBottom: 40,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   modalAction: {
-    paddingVertical: 16,
+    paddingVertical: 18,
     alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    marginVertical: 6,
   },
   modalActionText: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.text,
   },
   modalDivider: {
-    height: 1,
-    backgroundColor: '#e2e8f0',
+    height: 0,
   },
   modalCancel: {
-    marginTop: 4,
+    marginTop: 12,
+    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : '#fef2f2',
   },
   modalCancelText: {
     fontSize: 17,
-    fontWeight: '600',
-    color: '#ef4444',
+    fontWeight: '700',
+    color: colors.danger,
   },
   alertsModalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     width: '90%',
     maxHeight: '80%',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 20,
+    padding: 24,
     shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+    elevation: 10,
     alignSelf: 'center',
     marginTop: 'auto',
     marginBottom: 'auto',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   alertsModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingBottom: 16,
   },
   alertsModalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.text,
   },
   closeAlertsBtn: {
-    fontSize: 20,
-    color: '#94a3b8',
+    fontSize: 22,
+    color: colors.textSecondary,
     padding: 4,
   },
   alertsModalScroll: {
@@ -658,9 +718,9 @@ const styles = StyleSheet.create({
   },
   noAlertsText: {
     textAlign: 'center',
-    color: '#64748b',
+    color: colors.textSecondary,
     fontSize: 15,
-    marginTop: 20,
-    marginBottom: 20,
+    marginTop: 24,
+    marginBottom: 24,
   },
 });
