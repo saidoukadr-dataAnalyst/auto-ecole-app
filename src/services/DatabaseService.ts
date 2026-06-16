@@ -124,21 +124,24 @@ export class DatabaseService {
   private static async seedDefaultCategories(): Promise<void> {
     if (!this.db) return;
 
-    const result = await this.db.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM Categories');
+    const defaultCategories = [
+      { name: 'Paiement Forfait', type: 'INCOME', is_vehicle: 0, is_staff: 0, icon: 'wallet' },
+      { name: 'Leçon supplémentaire', type: 'INCOME', is_vehicle: 0, is_staff: 0, icon: 'cash' },
+      { name: 'Carburant', type: 'EXPENSE', is_vehicle: 1, is_staff: 0, icon: 'gas-station' },
+      { name: 'Entretien & Réparation', type: 'EXPENSE', is_vehicle: 1, is_staff: 0, icon: 'wrench' },
+      { name: 'Vidange', type: 'EXPENSE', is_vehicle: 1, is_staff: 0, icon: 'water' },
+      { name: 'Assurance', type: 'EXPENSE', is_vehicle: 1, is_staff: 0, icon: 'shield-check' },
+      { name: 'Loyer Local', type: 'EXPENSE', is_vehicle: 0, is_staff: 0, icon: 'home' },
+      { name: 'Salaires', type: 'EXPENSE', is_vehicle: 0, is_staff: 1, icon: 'account-group' },
+      { name: 'Électricité & Internet', type: 'EXPENSE', is_vehicle: 0, is_staff: 0, icon: 'lightning-bolt' },
+      { name: 'Autre', type: 'EXPENSE', is_vehicle: 0, is_staff: 0, icon: 'dots-horizontal' }
+    ];
 
-    if (result && result.count === 0) {
+    for (const cat of defaultCategories) {
       await this.db.execAsync(`
-        INSERT INTO Categories (name, type, is_vehicle_related, is_staff_related, icon) VALUES 
-        ('Paiement Forfait', 'INCOME', 0, 0, 'wallet'),
-        ('Leçon supplémentaire', 'INCOME', 0, 0, 'cash'),
-        ('Carburant', 'EXPENSE', 1, 0, 'gas-station'),
-        ('Entretien & Réparation', 'EXPENSE', 1, 0, 'wrench'),
-        ('Vidange', 'EXPENSE', 1, 0, 'water'),
-        ('Assurance', 'EXPENSE', 1, 0, 'shield-check'),
-        ('Loyer Local', 'EXPENSE', 0, 0, 'home'),
-        ('Salaires', 'EXPENSE', 0, 1, 'account-group'),
-        ('Électricité & Internet', 'EXPENSE', 0, 0, 'lightning-bolt'),
-        ('Autre', 'EXPENSE', 0, 0, 'dots-horizontal');
+        INSERT INTO Categories (name, type, is_vehicle_related, is_staff_related, icon)
+        SELECT '${cat.name}', '${cat.type}', ${cat.is_vehicle}, ${cat.is_staff}, '${cat.icon}'
+        WHERE NOT EXISTS (SELECT 1 FROM Categories WHERE name = '${cat.name}' AND type = '${cat.type}');
       `);
     }
   }

@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { AuthContext } from '../../App';
 import { ExportService } from '../services/ExportService';
 import { SecurityService } from '../services/SecurityService';
@@ -187,7 +187,10 @@ export function SettingsScreen() {
       </View>
 
       <Modal visible={showPinModal} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView 
+          style={styles.modalOverlay} 
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <View style={styles.modalContent}>
             <Text style={[styles.modalTitle, isRTL && styles.textRTL]}>Changer le mot de passe</Text>
 
@@ -233,7 +236,7 @@ export function SettingsScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

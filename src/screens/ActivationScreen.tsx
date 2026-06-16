@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { SecurityService } from '../services/SecurityService';
 import { useLanguage } from '../services/i18n';
@@ -64,41 +64,46 @@ export const ActivationScreen = ({ onActivated }: { onActivated: () => void }) =
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>🔒 {t('activation_title')}</Text>
-      <Text style={styles.subtitle}>{t('activation_subtitle')}</Text>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <Text style={styles.title}>🔒 {t('activation_title')}</Text>
+        <Text style={styles.subtitle}>{t('activation_subtitle')}</Text>
 
-      <View style={styles.deviceCodeContainer}>
-        <Text style={styles.deviceCodeLabel}>{t('activation_device_label')}</Text>
-        <Text style={styles.deviceCode}>{deviceId}</Text>
-        <TouchableOpacity style={styles.copyButton} onPress={copyToClipboard}>
-          <Text style={styles.copyButtonText}>{t('activation_copy')}</Text>
+        <View style={styles.deviceCodeContainer}>
+          <Text style={styles.deviceCodeLabel}>{t('activation_device_label')}</Text>
+          <Text style={styles.deviceCode}>{deviceId}</Text>
+          <TouchableOpacity style={styles.copyButton} onPress={copyToClipboard}>
+            <Text style={styles.copyButtonText}>{t('activation_copy')}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.inputLabel}>{t('activation_key_label')}</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Ex: ABCD-EFGH-IJKL-MNOP"
+          placeholderTextColor={colors.textSecondary}
+          value={inputKey}
+          onChangeText={setInputKey}
+          autoCapitalize="characters"
+          autoCorrect={false}
+        />
+
+        <TouchableOpacity
+          style={[styles.button, verifying && styles.buttonDisabled]}
+          onPress={handleVerify}
+          disabled={verifying}
+        >
+          {verifying ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>{t('activation_unlock')}</Text>
+          )}
         </TouchableOpacity>
-      </View>
-
-      <Text style={styles.inputLabel}>{t('activation_key_label')}</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Ex: ABCD-EFGH-IJKL-MNOP"
-        placeholderTextColor={colors.textSecondary}
-        value={inputKey}
-        onChangeText={setInputKey}
-        autoCapitalize="characters"
-        autoCorrect={false}
-      />
-
-      <TouchableOpacity
-        style={[styles.button, verifying && styles.buttonDisabled]}
-        onPress={handleVerify}
-        disabled={verifying}
-      >
-        {verifying ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>{t('activation_unlock')}</Text>
-        )}
-      </TouchableOpacity>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -111,8 +116,11 @@ const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   },
   container: {
     flex: 1,
-    padding: 24,
     backgroundColor: colors.background,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    padding: 24,
     justifyContent: 'center',
   },
   title: {

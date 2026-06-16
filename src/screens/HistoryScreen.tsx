@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, SectionList, ActivityIndicator, RefreshControl, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, SectionList, ActivityIndicator, RefreshControl, TouchableOpacity, Alert, TextInput, ScrollView } from 'react-native';
 import { DatabaseService } from '../services/DatabaseService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
@@ -25,15 +25,67 @@ interface MonthSection {
 export function HistoryScreen() {
   const { t, isRTL } = useLanguage();
   const { colors, isDark } = useTheme();
-  const [sections, setSections] = useState<MonthSection[]>([]);
+  
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<string>('ALL');
+  
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [totalCount, setTotalCount] = useState(0);
 
-  const groupTransactionsByMonth = (data: Transaction[]) => {
+  const loadTransactions = useCallback(async () => {
+    try {
+      const data = await DatabaseService.getTransactions();
+      setAllTransactions(data);
+    } catch {
+      setAllTransactions([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTransactions();
+  }, [loadTransactions]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadTransactions();
+  }, [loadTransactions]);
+
+  const availableCategories = useMemo(() => {
+    const cats = new Set<string>();
+    allTransactions.forEach(t => {
+      if (t.category_name) cats.add(t.category_name);
+    });
+    return Array.from(cats).sort();
+  }, [allTransactions]);
+
+  const filteredData = useMemo(() => {
+    return allTransactions.filter(t => {
+      // 1. Text Search
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchCat = t.category_name?.toLowerCase().includes(q);
+        const matchDesc = t.description?.toLowerCase().includes(q);
+        const matchAmount = t.amount.toString().includes(q);
+        if (!matchCat && !matchDesc && !matchAmount) return false;
+      }
+      
+      // 2. Chip Filter
+      if (activeFilter === 'INCOME') return t.type === 'INCOME';
+      if (activeFilter === 'EXPENSE') return t.type === 'EXPENSE';
+      if (activeFilter !== 'ALL') return t.category_name === activeFilter;
+      
+      return true;
+    });
+  }, [allTransactions, searchQuery, activeFilter]);
+
+  const sections = useMemo(() => {
     const groups: { [key: string]: MonthSection } = {};
     
-    data.forEach((t) => {
+    filteredData.forEach((t) => {
       const dateObj = new Date(t.date);
       // Format "Mois Année" (ex: Juin 2026)
       const monthKey = dateObj.toLocaleDateString(isRTL ? 'ar' : 'fr-FR', {
@@ -59,30 +111,7 @@ export function HistoryScreen() {
     });
 
     return Object.values(groups);
-  };
-
-  const loadTransactions = useCallback(async () => {
-    try {
-      const data = await DatabaseService.getTransactions();
-      setTotalCount(data.length);
-      const groupedData = groupTransactionsByMonth(data);
-      setSections(groupedData);
-    } catch {
-      setSections([]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [isRTL]);
-
-  useEffect(() => {
-    loadTransactions();
-  }, [loadTransactions]);
-
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    loadTransactions();
-  }, [loadTransactions]);
+  }, [filteredData, isRTL]);
 
   const formatDate = (dateStr: string) => {
     try {
@@ -133,6 +162,7 @@ export function HistoryScreen() {
         style={[styles.card, isRTL && styles.cardRTL]}
         onLongPress={() => handleDeleteTransaction(item)}
         delayLongPress={500}
+        activeOpacity={0.7}
       >
         <View style={[styles.iconContainer, { backgroundColor: iconBgColor }]}>
           <Text style={styles.icon}>{icon}</Text>
@@ -192,7 +222,7 @@ export function HistoryScreen() {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyIcon}>📋</Text>
-        <Text style={styles.emptyText}>{t('no_transactions')}</Text>
+        <Text style={styles.emptyText}>{searchQuery || activeFilter !== 'ALL' ? 'Aucune transaction trouvée.' : t('no_transactions')}</Text>
       </View>
     );
   };
@@ -212,8 +242,53 @@ export function HistoryScreen() {
       <View style={[styles.header, isRTL && styles.headerRTL]}>
         <Text style={[styles.headerTitle, isRTL && styles.textRTL]}>{t('history')}</Text>
         <Text style={[styles.headerSubtitle, isRTL && styles.textRTL]}>
-          {totalCount} {t('transactions') ?? 'transactions'}
+          {filteredData.length} {t('transactions') ?? 'transactions'}
         </Text>
+      </View>
+
+      <View style={styles.filterContainer}>
+        <TextInput
+          style={[styles.searchInput, isRTL && styles.textRTL]}
+          placeholder={`🔍 ${t('search')}... (ex: Carburant, Vidange, Montant)`}
+          placeholderTextColor={colors.textSecondary}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          style={styles.chipScroll} 
+          contentContainerStyle={[styles.chipContent, isRTL && styles.rowRTL]}
+        >
+          <TouchableOpacity 
+            style={[styles.chip, activeFilter === 'ALL' && styles.activeChip]} 
+            onPress={() => setActiveFilter('ALL')}
+          >
+            <Text style={[styles.chipText, activeFilter === 'ALL' && styles.activeChipText]}>Tous</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.chip, activeFilter === 'INCOME' && styles.activeChip]} 
+            onPress={() => setActiveFilter('INCOME')}
+          >
+            <Text style={[styles.chipText, activeFilter === 'INCOME' && styles.activeChipText]}>Entrées</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.chip, activeFilter === 'EXPENSE' && styles.activeChip]} 
+            onPress={() => setActiveFilter('EXPENSE')}
+          >
+            <Text style={[styles.chipText, activeFilter === 'EXPENSE' && styles.activeChipText]}>Sorties</Text>
+          </TouchableOpacity>
+          
+          {availableCategories.map(cat => (
+            <TouchableOpacity 
+              key={cat}
+              style={[styles.chip, activeFilter === cat && styles.activeChip]} 
+              onPress={() => setActiveFilter(cat)}
+            >
+              <Text style={[styles.chipText, activeFilter === cat && styles.activeChipText]}>{cat}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       <SectionList
@@ -273,9 +348,57 @@ const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 4,
   },
+  filterContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  searchInput: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 15,
+    borderWidth: 1,
+    borderColor: colors.border,
+    color: colors.text,
+    marginBottom: 12,
+  },
+  chipScroll: {
+    flexGrow: 0,
+  },
+  chipContent: {
+    gap: 8,
+    paddingRight: 20,
+  },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  activeChip: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  chipText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  activeChipText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
   listContent: {
     padding: 16,
     gap: 12,
+    paddingBottom: 40,
   },
   emptyList: {
     flex: 1,

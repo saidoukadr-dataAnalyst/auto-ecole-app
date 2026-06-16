@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput, Vibration, Animated, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput, Vibration, Animated, StatusBar, ScrollView } from 'react-native';
 import { SecurityService } from '../services/SecurityService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
@@ -180,7 +180,7 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
 
   if (mode === 'RECOVERY') {
     return (
-      <View style={styles.container}>
+      <ScrollView style={styles.container} contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         <StatusBar barStyle={statusBarStyle} backgroundColor={statusBarColor} />
         <View style={styles.content}>
           <View style={styles.lockIconContainer}>
@@ -211,7 +211,7 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
             <Text style={styles.cancelLinkText}>{t('cancel')}</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
     );
   }
 
@@ -240,7 +240,7 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
   ];
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={{ flexGrow: 1 }} bounces={false} showsVerticalScrollIndicator={false}>
       <StatusBar barStyle={statusBarStyle} backgroundColor={statusBarColor} />
 
       <View style={styles.topSection}>
@@ -320,7 +320,7 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
           )}
         </View>
       </View>
-    </View>
+    </ScrollView>
   );
 };
 

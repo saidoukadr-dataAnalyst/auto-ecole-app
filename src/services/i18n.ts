@@ -46,7 +46,8 @@ type TranslationKeys =
   | 'staff' | 'menu_staff' | 'add_staff' | 'edit_staff' | 'role' | 'salary' | 'base_salary' | 'no_staff' | 'staff_required' | 'staff_saved' | 'staff_deleted' | 'phone_optional'
   | 'kpi_net' | 'no_activity' | 'security' | 'change_pin' | 'change_pin_desc'
   | 'income_label' | 'expense_label' | 'profit_label'
-  | 'cat_fuel' | 'cat_maintenance' | 'cat_oil' | 'cat_insurance' | 'cat_rent' | 'cat_salaries' | 'cat_electricity' | 'cat_other';
+  | 'cat_fuel' | 'cat_maintenance' | 'cat_oil' | 'cat_insurance' | 'cat_rent' | 'cat_salaries' | 'cat_electricity' | 'cat_other'
+  | 'unlock' | 'fuel_liters' | 'fuel_liters_required' | 'consumption';
 
 type Translations = Record<Lang, Record<TranslationKeys, string>>;
 
@@ -226,7 +227,8 @@ export const translations: Translations = {
     cat_rent: 'Loyer Local',
     cat_salaries: 'Salaires',
     cat_electricity: 'Électricité & Internet',
-    cat_other: 'Autre'
+    cat_other: 'Autre',
+    unlock: 'Déverrouiller'
   },
   ar: {
     app_name: 'مدرستي',
@@ -403,7 +405,8 @@ export const translations: Translations = {
     cat_rent: 'كراء المحل',
     cat_salaries: 'رواتب',
     cat_electricity: 'كهرباء وإنترنت',
-    cat_other: 'أخرى'
+    cat_other: 'أخرى',
+    unlock: 'فتح'
   },
 };
 
