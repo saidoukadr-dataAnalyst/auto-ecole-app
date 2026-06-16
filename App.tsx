@@ -80,7 +80,7 @@ export default function App() {
 
   return (
     <LanguageProvider>
-      <StatusBar style="dark" translucent={false} />
+      <StatusBar style="dark" translucent={false} backgroundColor="#F0F4FF" />
       {content}
     </LanguageProvider>
   );

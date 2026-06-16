@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput, Vibration, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput, Vibration, Animated, StatusBar } from 'react-native';
 import { SecurityService } from '../services/SecurityService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
@@ -25,6 +25,8 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
     new Animated.Value(1),
   ]).current;
 
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     const checkPinStatus = async () => {
       try {
@@ -46,7 +48,7 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
   const animateDot = (index: number) => {
     Animated.sequence([
       Animated.timing(dotScales[index], {
-        toValue: 1.3,
+        toValue: 1.4,
         duration: 100,
         useNativeDriver: true,
       }),
@@ -55,6 +57,16 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
         duration: 100,
         useNativeDriver: true,
       }),
+    ]).start();
+  };
+
+  const shakeError = () => {
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 15, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -15, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
     ]).start();
   };
 
@@ -90,6 +102,14 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
     }
   };
 
+  const handleUnlock = async () => {
+    if (pin.length === 4) {
+      await processCompletedPin(pin, 1);
+    } else {
+      showToast(t('fill_required'));
+    }
+  };
+
   const processCompletedPin = async (completedPin: string, currentStep: number) => {
     if (mode === 'VERIFY') {
       const isValid = await SecurityService.verifyUserPin(completedPin);
@@ -97,6 +117,7 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
         onUnlocked();
       } else {
         Vibration.vibrate(300);
+        shakeError();
         showToast(t('pin_wrong'));
         resetDotScales();
         setPin('');
@@ -112,6 +133,7 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
           onUnlocked();
         } else {
           Vibration.vibrate(300);
+          shakeError();
           showToast(t('pin_mismatch'));
           resetDotScales();
           setPin('');
@@ -142,7 +164,8 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
+        <StatusBar barStyle="dark-content" backgroundColor="#F0F4FF" />
+        <ActivityIndicator size="large" color="#4A90D9" />
       </View>
     );
   }
@@ -150,25 +173,30 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
   if (mode === 'RECOVERY') {
     return (
       <View style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#F0F4FF" />
         <View style={styles.content}>
+          <View style={styles.lockIconContainer}>
+            <Text style={styles.lockIcon}>🔑</Text>
+          </View>
           <Text style={styles.title}>{t('recovery_title')}</Text>
           <Text style={styles.subtitle}>{t('recovery_instruction')}</Text>
 
           <View style={styles.deviceCodeContainer}>
+            <Text style={styles.deviceCodeLabel}>Code Appareil</Text>
             <Text style={styles.deviceCode}>{deviceId}</Text>
           </View>
 
           <TextInput
             style={styles.recoveryInput}
             placeholder={t('recovery_key')}
-            placeholderTextColor="rgba(255,255,255,0.4)"
+            placeholderTextColor="#94a3b8"
             value={recoveryKey}
             onChangeText={setRecoveryKey}
             autoCapitalize="characters"
           />
 
-          <TouchableOpacity style={styles.validateButton} onPress={handleRecovery}>
-            <Text style={styles.validateButtonText}>{t('validate_key')}</Text>
+          <TouchableOpacity style={styles.unlockButton} onPress={handleRecovery}>
+            <Text style={styles.unlockButtonText}>{t('validate_key')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.cancelLink} onPress={() => setMode('VERIFY')}>
@@ -189,6 +217,13 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
     return t('enter_pin');
   };
 
+  const getSubtitle = () => {
+    if (mode === 'CREATE') {
+      return step === 1 ? 'Choisissez un code à 4 chiffres' : 'Retapez le même code';
+    }
+    return 'Saisissez votre code pour continuer';
+  };
+
   const keypadRows: (string | null)[][] = [
     ['1', '2', '3'],
     ['4', '5', '6'],
@@ -198,10 +233,18 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>{getTitle()}</Text>
+      <StatusBar barStyle="dark-content" backgroundColor="#F0F4FF" />
 
-        <View style={[styles.dotsContainer, isRTL && styles.rowReverse]}>
+      {/* Top section with icon and title */}
+      <View style={styles.topSection}>
+        <View style={styles.lockIconContainer}>
+          <Text style={styles.lockIcon}>🔐</Text>
+        </View>
+        <Text style={styles.title}>{getTitle()}</Text>
+        <Text style={styles.subtitle}>{getSubtitle()}</Text>
+
+        {/* PIN dots */}
+        <Animated.View style={[styles.dotsContainer, isRTL && styles.rowReverse, { transform: [{ translateX: shakeAnim }] }]}>
           {[0, 1, 2, 3].map((i) => (
             <Animated.View
               key={i}
@@ -212,47 +255,64 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
               ]}
             />
           ))}
-        </View>
+        </Animated.View>
+      </View>
 
-        <View style={styles.keypad}>
-          {keypadRows.map((row, rowIndex) => (
-            <View key={rowIndex} style={[styles.keypadRow, isRTL && styles.rowReverse]}>
-              {row.map((key, colIndex) => {
-                if (key === null) {
-                  return <View key={`empty-${colIndex}`} style={styles.keyEmpty} />;
-                }
-                if (key === 'backspace') {
+      {/* Bottom section with keypad */}
+      <View style={styles.bottomSection}>
+        <View style={styles.keypadCard}>
+          <View style={styles.keypad}>
+            {keypadRows.map((row, rowIndex) => (
+              <View key={rowIndex} style={[styles.keypadRow, isRTL && styles.rowReverse]}>
+                {row.map((key, colIndex) => {
+                  if (key === null) {
+                    return <View key={`empty-${colIndex}`} style={styles.keyEmpty} />;
+                  }
+                  if (key === 'backspace') {
+                    return (
+                      <TouchableOpacity
+                        key="backspace"
+                        style={styles.keyButton}
+                        onPress={handleDelete}
+                        activeOpacity={0.6}
+                      >
+                        <Text style={styles.keyBackspace}>⌫</Text>
+                      </TouchableOpacity>
+                    );
+                  }
                   return (
                     <TouchableOpacity
-                      key="backspace"
+                      key={key}
                       style={styles.keyButton}
-                      onPress={handleDelete}
+                      onPress={() => handlePinPress(key)}
                       activeOpacity={0.6}
                     >
-                      <Text style={styles.keyBackspace}>⌫</Text>
+                      <Text style={styles.keyText}>{key}</Text>
                     </TouchableOpacity>
                   );
-                }
-                return (
-                  <TouchableOpacity
-                    key={key}
-                    style={styles.keyButton}
-                    onPress={() => handlePinPress(key)}
-                    activeOpacity={0.6}
-                  >
-                    <Text style={styles.keyText}>{key}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          ))}
-        </View>
+                })}
+              </View>
+            ))}
+          </View>
 
-        {mode === 'VERIFY' && (
-          <TouchableOpacity style={styles.forgotLink} onPress={() => setMode('RECOVERY')}>
-            <Text style={styles.forgotLinkText}>{t('forgot_pin')}</Text>
-          </TouchableOpacity>
-        )}
+          {/* Unlock button */}
+          {mode === 'VERIFY' && (
+            <TouchableOpacity
+              style={[styles.unlockButton, currentPinLength < 4 && styles.unlockButtonDisabled]}
+              onPress={handleUnlock}
+              disabled={currentPinLength < 4}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.unlockButtonText}>🔓  Déverrouiller</Text>
+            </TouchableOpacity>
+          )}
+
+          {mode === 'VERIFY' && (
+            <TouchableOpacity style={styles.forgotLink} onPress={() => setMode('RECOVERY')}>
+              <Text style={styles.forgotLinkText}>{t('forgot_pin')}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -263,11 +323,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
+    backgroundColor: '#F0F4FF',
   },
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#F0F4FF',
   },
   content: {
     flex: 1,
@@ -275,123 +335,186 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
   },
+  topSection: {
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingBottom: 20,
+  },
+  lockIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#E8F0FE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    shadowColor: '#4A90D9',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  lockIcon: {
+    fontSize: 36,
+  },
   title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#ffffff',
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#1A1A2E',
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.7)',
+    color: '#64748b',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 28,
     lineHeight: 20,
     paddingHorizontal: 16,
   },
   dotsContainer: {
     flexDirection: 'row',
-    gap: 20,
-    marginBottom: 50,
+    gap: 24,
+    marginBottom: 10,
   },
   rowReverse: {
     flexDirection: 'row-reverse',
   },
   dot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.4)',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2.5,
+    borderColor: '#C8D6E5',
     backgroundColor: 'transparent',
   },
   dotFilled: {
-    backgroundColor: '#3b82f6',
-    borderColor: '#3b82f6',
+    backgroundColor: '#4A90D9',
+    borderColor: '#4A90D9',
+  },
+  bottomSection: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    paddingBottom: 30,
+    paddingHorizontal: 20,
+  },
+  keypadCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 28,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 8,
+    alignItems: 'center',
   },
   keypad: {
-    width: 280,
-    gap: 16,
+    width: 260,
+    gap: 12,
   },
   keypadRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   keyButton: {
-    width: 75,
-    height: 75,
-    borderRadius: 37.5,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#F5F7FA',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E8ECF0',
   },
   keyEmpty: {
-    width: 75,
-    height: 75,
+    width: 72,
+    height: 72,
   },
   keyText: {
-    fontSize: 28,
-    fontWeight: '500',
-    color: '#ffffff',
+    fontSize: 26,
+    fontWeight: '600',
+    color: '#1A1A2E',
   },
   keyBackspace: {
-    fontSize: 24,
-    color: 'rgba(255,255,255,0.7)',
+    fontSize: 22,
+    color: '#94a3b8',
+  },
+  unlockButton: {
+    width: '100%',
+    backgroundColor: '#4A90D9',
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    marginTop: 16,
+    shadowColor: '#4A90D9',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  unlockButtonDisabled: {
+    backgroundColor: '#B0C8E8',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  unlockButtonText: {
+    color: '#ffffff',
+    fontSize: 17,
+    fontWeight: '700',
   },
   forgotLink: {
-    marginTop: 40,
+    marginTop: 16,
+    padding: 6,
   },
   forgotLinkText: {
-    color: '#60a5fa',
-    fontSize: 15,
+    color: '#4A90D9',
+    fontSize: 14,
     fontWeight: '600',
   },
   deviceCodeContainer: {
     paddingVertical: 14,
     paddingHorizontal: 24,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 10,
-    marginBottom: 28,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 14,
+    marginBottom: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: '#FECACA',
+    alignItems: 'center',
+  },
+  deviceCodeLabel: {
+    fontSize: 11,
+    color: '#94a3b8',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
   },
   deviceCode: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#ef4444',
+    color: '#DC2626',
     textAlign: 'center',
   },
   recoveryInput: {
     width: '100%',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
     padding: 16,
     fontSize: 16,
-    color: '#ffffff',
+    color: '#1A1A2E',
     textAlign: 'center',
-    marginBottom: 24,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  validateButton: {
-    width: '100%',
-    backgroundColor: '#3b82f6',
-    padding: 16,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  validateButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    marginBottom: 20,
+    backgroundColor: '#ffffff',
   },
   cancelLink: {
-    marginTop: 24,
+    marginTop: 20,
     padding: 10,
   },
   cancelLinkText: {
-    color: '#60a5fa',
+    color: '#4A90D9',
     fontSize: 15,
     fontWeight: '600',
   },
