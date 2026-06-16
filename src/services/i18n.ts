@@ -47,7 +47,7 @@ type TranslationKeys =
   | 'kpi_net' | 'no_activity' | 'security' | 'change_pin' | 'change_pin_desc'
   | 'income_label' | 'expense_label' | 'profit_label'
   | 'cat_fuel' | 'cat_maintenance' | 'cat_oil' | 'cat_insurance' | 'cat_rent' | 'cat_salaries' | 'cat_electricity' | 'cat_other'
-  | 'unlock' | 'fuel_liters' | 'fuel_liters_required' | 'consumption';
+  | 'unlock' | 'fuel_liters' | 'fuel_liters_required' | 'consumption' | 'paid_amount';
 
 type Translations = Record<Lang, Record<TranslationKeys, string>>;
 
@@ -228,7 +228,8 @@ export const translations: Translations = {
     cat_salaries: 'Salaires',
     cat_electricity: 'Électricité & Internet',
     cat_other: 'Autre',
-    unlock: 'Déverrouiller'
+    unlock: 'Déverrouiller',
+    paid_amount: 'Montant Payé'
   },
   ar: {
     app_name: 'مدرستي',
@@ -355,7 +356,7 @@ export const translations: Translations = {
     edit: 'تعديل',
     confirm_delete: 'تأكيد الحذف',
     confirm_delete_msg: 'هل تريد حذف هذا العنصر حقاً؟',
-    advance: 'السلفة',
+    advance: 'التسبيق',
     remaining_amount: 'المبلغ المتبقي',
     oil_change_date: 'تاريخ آخر تغيير زيت',
     select_date: 'اختر تاريخاً',
@@ -406,7 +407,8 @@ export const translations: Translations = {
     cat_salaries: 'رواتب',
     cat_electricity: 'كهرباء وإنترنت',
     cat_other: 'أخرى',
-    unlock: 'فتح'
+    unlock: 'فتح',
+    paid_amount: 'المبلغ المدفوع'
   },
 };
 

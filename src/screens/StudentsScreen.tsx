@@ -234,7 +234,7 @@ export function StudentsScreen() {
             <Text style={styles.paymentValue}>{(item.package_price || 0).toFixed(0)} DH</Text>
           </View>
           <View style={styles.paymentItem}>
-            <Text style={styles.paymentLabel}>{t('advance')}</Text>
+            <Text style={styles.paymentLabel}>{t('paid_amount') || 'MONTANT PAYÉ'}</Text>
             <Text style={[styles.paymentValue, styles.greenText]}>{(item.paid_amount || 0).toFixed(0)} DH</Text>
           </View>
           <View style={styles.paymentItem}>
