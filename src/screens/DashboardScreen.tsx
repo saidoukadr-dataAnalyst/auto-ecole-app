@@ -221,7 +221,7 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
               recentActivities.map((act) => (
                 <View key={act.id} style={[styles.activityItem, isRTL && styles.rtlRow]}>
                   <View style={[styles.activityIconWrapper, act.type === 'INCOME' ? styles.bgGreenLight : styles.bgRedLight]}>
-                    <Text style={styles.activityIcon}>{act.type === 'INCOME' ? '↓' : '↑'}</Text>
+                    <Text style={styles.activityIcon}>{act.type === 'INCOME' ? '↑' : '↓'}</Text>
                   </View>
                   <View style={[styles.activityDetails, isRTL && styles.rtlDetails]}>
                     <Text style={[styles.activityTitle, isRTL && styles.rtlText]}>{act.category_name}</Text>
