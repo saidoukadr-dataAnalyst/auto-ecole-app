@@ -10,7 +10,7 @@ type TranslationKeys =
   | 'save' | 'cancel' | 'delete'
   | 'name' | 'phone' | 'package_price' | 'remaining' | 'paid' | 'debt'
   | 'registration' | 'mileage' | 'next_visit' | 'oil_change'
-  | 'amount' | 'category' | 'description'
+  | 'amount' | 'category' | 'description' | 'type' | 'date'
   | 'new_expense' | 'new_income' | 'choose_action'
   | 'export_pdf' | 'export_csv' | 'backup_db'
   | 'enter_pin' | 'create_pin' | 'confirm_pin' | 'forgot_pin'
@@ -47,7 +47,13 @@ type TranslationKeys =
   | 'kpi_net' | 'no_activity' | 'security' | 'change_pin' | 'change_pin_desc'
   | 'income_label' | 'expense_label' | 'profit_label'
   | 'cat_fuel' | 'cat_maintenance' | 'cat_oil' | 'cat_insurance' | 'cat_rent' | 'cat_salaries' | 'cat_electricity' | 'cat_other'
-  | 'unlock' | 'fuel_liters' | 'fuel_liters_required' | 'consumption' | 'paid_amount';
+  | 'unlock' | 'fuel_liters' | 'fuel_liters_required' | 'consumption' | 'paid_amount'
+  | 'passed' | 'failed' | 'abandoned'
+  | 'archive_student_title' | 'exit_date' | 'outcome_status' | 'archive_confirm' | 'archived_on'
+  | 'export_students' | 'list_type' | 'active_students' | 'archived_students' | 'filter_by_status' | 'filter_by_date' | 'select_year' | 'select_month' | 'export_all' | 'export_pdf_button' | 'export_csv_button'
+  | 'tva_calculation' | 'tva_annual_report' | 'enrolled_students_count' | 'total_tva_due' | 'select_year_tva' | 'generate_tva_pdf'
+  | 'transaction_actions' | 'edit_transaction' | 'delete_transaction' | 'transaction_deleted_toast' | 'transaction_updated_toast'
+  | 'trash' | 'empty_trash' | 'restore' | 'deleted_permanently' | 'trash_empty' | 'moved_to_trash' | 'restored_success' | 'emptied_success' | 'student_restored' | 'student_deleted_forever' | 'transaction_restored' | 'transaction_deleted_forever' | 'confirm_empty_trash';
 
 type Translations = Record<Lang, Record<TranslationKeys, string>>;
 
@@ -86,6 +92,8 @@ export const translations: Translations = {
     next_visit: 'Visite Technique',
     oil_change: 'Vidange',
     amount: 'Montant',
+    type: 'Type',
+    date: 'Date',
     category: 'Catégorie',
     description: 'Description',
     new_expense: 'Nouvelle Dépense',
@@ -229,7 +237,50 @@ export const translations: Translations = {
     cat_electricity: 'Électricité & Internet',
     cat_other: 'Autre',
     unlock: 'Déverrouiller',
-    paid_amount: 'Montant Payé'
+    paid_amount: 'Montant Payé',
+    passed: "Réussi",
+    failed: "Raté",
+    abandoned: "Abandonné",
+    archive_student_title: "Archiver l'Élève",
+    exit_date: "Date de Sortie",
+    outcome_status: "Statut / Résultat",
+    archive_confirm: "Archiver",
+    archived_on: "Sortie le",
+    export_students: "Exporter la Liste des Élèves",
+    list_type: "Type de Liste",
+    active_students: "Élèves Actifs",
+    archived_students: "Élèves Archivés",
+    filter_by_status: "Filtrer par statut",
+    filter_by_date: "Filtrer par date (Inscription)",
+    select_year: "Sélectionner l'Année",
+    select_month: "Sélectionner le Mois",
+    export_all: "Tous / Toutes",
+    export_pdf_button: "Exporter en PDF",
+    export_csv_button: "Exporter en CSV",
+    tva_calculation: "Calcul de la TVA",
+    tva_annual_report: "Bilan TVA Annuel",
+    enrolled_students_count: "Nombre d'élèves inscrits",
+    total_tva_due: "Total TVA Dû (850 DH/él.)",
+    select_year_tva: "Année concernée",
+    generate_tva_pdf: "Générer Rapport TVA (PDF)",
+    transaction_actions: "Actions de Transaction",
+    edit_transaction: "Modifier la Transaction",
+    delete_transaction: "Supprimer la Transaction",
+    transaction_deleted_toast: "Transaction déplacée dans la corbeille.",
+    transaction_updated_toast: "Transaction mise à jour.",
+    trash: "Corbeille",
+    empty_trash: "Vider la Corbeille",
+    restore: "Restaurer",
+    deleted_permanently: "Supprimer définitivement",
+    trash_empty: "La corbeille est vide.",
+    moved_to_trash: "Élément déplacé dans la corbeille.",
+    restored_success: "Élément restauré.",
+    emptied_success: "Corbeille vidée avec succès.",
+    student_restored: "Élève restauré.",
+    student_deleted_forever: "Élève supprimé définitivement.",
+    transaction_restored: "Transaction restaurée.",
+    transaction_deleted_forever: "Transaction supprimée définitivement.",
+    confirm_empty_trash: "Voulez-vous vraiment vider définitivement la corbeille ? Cette action est irréversible."
   },
   ar: {
     app_name: 'مدرستي',
@@ -265,6 +316,8 @@ export const translations: Translations = {
     next_visit: 'المراقبة التقنية',
     oil_change: 'تغيير الزيت',
     amount: 'المبلغ',
+    type: 'النوع',
+    date: 'التاريخ',
     category: 'الفئة',
     description: 'الوصف',
     new_expense: 'مصروف جديد',
@@ -408,7 +461,50 @@ export const translations: Translations = {
     cat_electricity: 'كهرباء وإنترنت',
     cat_other: 'أخرى',
     unlock: 'فتح',
-    paid_amount: 'المبلغ المدفوع'
+    paid_amount: 'المبلغ المدفوع',
+    passed: "ناجح",
+    failed: "راسب",
+    abandoned: "منقطع",
+    archive_student_title: "أرشفة التلميذ",
+    exit_date: "تاريخ الخروج",
+    outcome_status: "الحالة / النتيجة",
+    archive_confirm: "أرشفة",
+    archived_on: "تاريخ الخروج",
+    export_students: "تصدير قائمة التلاميذ",
+    list_type: "نوع القائمة",
+    active_students: "التلاميذ النشطون",
+    archived_students: "التلاميذ المؤرشفون",
+    filter_by_status: "تصفية حسب الحالة",
+    filter_by_date: "تصفية حسب التاريخ (التسجيل)",
+    select_year: "اختر السنة",
+    select_month: "اختر الشهر",
+    export_all: "الكل",
+    export_pdf_button: "تصدير PDF",
+    export_csv_button: "تصدير CSV",
+    tva_calculation: "حساب الضريبة",
+    tva_annual_report: "تقرير الضريبة السنوي",
+    enrolled_students_count: "عدد التلاميذ المسجلين",
+    total_tva_due: "مجموع الضريبة (850 درهم/تلميذ)",
+    select_year_tva: "السنة المعنية",
+    generate_tva_pdf: "تقرير الضريبة (PDF)",
+    transaction_actions: "إجراءات المعاملة",
+    edit_transaction: "تعديل المعاملة",
+    delete_transaction: "حذف المعاملة",
+    transaction_deleted_toast: "تم نقل المعاملة إلى سلة المهملات.",
+    transaction_updated_toast: "تم تحديث المعاملة.",
+    trash: "سلة المهملات",
+    empty_trash: "إفراغ السلة",
+    restore: "استعادة",
+    deleted_permanently: "حذف نهائي",
+    trash_empty: "سلة المهملات فارغة.",
+    moved_to_trash: "تم نقل العنصر إلى سلة المهملات.",
+    restored_success: "تم استعادة العنصر.",
+    emptied_success: "تم إفراغ سلة المهملات بنجاح.",
+    student_restored: "تم استعادة التلميذ.",
+    student_deleted_forever: "تم حذف التلميذ نهائياً.",
+    transaction_restored: "تم استعادة المعاملة.",
+    transaction_deleted_forever: "تم حذف المعاملة نهائياً.",
+    confirm_empty_trash: "هل تريد حقًا إفراغ سلة المهملات نهائيًا؟ هذا الإجراء لا يمكن التراجع عنه."
   },
 };
 

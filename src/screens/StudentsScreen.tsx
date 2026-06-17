@@ -1,6 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, ActivityIndicator, RefreshControl, Alert, ScrollView } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, ActivityIndicator, RefreshControl, Alert, ScrollView, Platform } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { Ionicons } from '@expo/vector-icons';
 import { DatabaseService } from '../services/DatabaseService';
+import { ExportService } from '../services/ExportService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
 import { useTheme } from '../theme/ThemeContext';
@@ -9,6 +12,7 @@ import { ThemeColors } from '../theme/colors';
 export function StudentsScreen() {
   const { t, isRTL } = useLanguage();
   const { colors, isDark } = useTheme();
+  
   const [students, setStudents] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
   const [search, setSearch] = useState('');
@@ -22,7 +26,7 @@ export function StudentsScreen() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [selectedStudentForHistory, setSelectedStudentForHistory] = useState<any>(null);
 
-  // Modal state
+  // Form modal state
   const [modalVisible, setModalVisible] = useState(false);
   const [editingStudent, setEditingStudent] = useState<any>(null);
   const [name, setName] = useState('');
@@ -30,6 +34,21 @@ export function StudentsScreen() {
   const [packagePrice, setPackagePrice] = useState('');
   const [advance, setAdvance] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Archive modal state
+  const [archiveModalVisible, setArchiveModalVisible] = useState(false);
+  const [archivingStudent, setArchivingStudent] = useState<any>(null);
+  const [exitDate, setExitDate] = useState<Date>(new Date());
+  const [outcomeStatus, setOutcomeStatus] = useState<'PASSED' | 'FAILED' | 'ABANDONED'>('PASSED');
+  const [showExitDatePicker, setShowExitDatePicker] = useState(false);
+
+  // Export modal state
+  const [exportModalVisible, setExportModalVisible] = useState(false);
+  const [exportListType, setExportListType] = useState<'ACTIVE' | 'ARCHIVED'>('ACTIVE');
+  const [exportOutcomeStatus, setExportOutcomeStatus] = useState<'ALL' | 'PASSED' | 'FAILED' | 'ABANDONED'>('ALL');
+  const [exportYear, setExportYear] = useState<string>('ALL');
+  const [exportMonth, setExportMonth] = useState<string>('ALL');
+  const [exporting, setExporting] = useState(false);
 
   const loadStudents = useCallback(async () => {
     try {
@@ -52,9 +71,7 @@ export function StudentsScreen() {
   useEffect(() => {
     let filteredData = students.filter(s => (s.status || 'ACTIVE') === filterStatus);
     
-    if (!search.trim()) {
-      setFiltered(students);
-    } else {
+    if (search.trim()) {
       const q = search.toLowerCase();
       filteredData = filteredData.filter((s) => s.name?.toLowerCase().includes(q) || s.phone?.includes(q));
     }
@@ -99,8 +116,8 @@ export function StudentsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await DatabaseService.deleteStudent(student.id);
-              showToast(t('student_deleted'));
+              await DatabaseService.softDeleteStudent(student.id);
+              showToast(t('moved_to_trash') || "Élève déplacé dans la corbeille");
               loadStudents();
             } catch {
               showToast(t('error'));
@@ -111,29 +128,50 @@ export function StudentsScreen() {
     );
   };
 
-  const handleToggleStatus = async (student: any) => {
-    const newStatus = student.status === 'ARCHIVED' ? 'ACTIVE' : 'ARCHIVED';
-    const actionText = newStatus === 'ARCHIVED' ? 'archiver cet élève (permis obtenu/abandon)' : 'réactiver cet élève';
-    
-    Alert.alert(
-      "Changer le statut",
-      `Voulez-vous vraiment ${actionText} ?`,
-      [
-        { text: t('cancel') || 'Annuler', style: 'cancel' },
-        {
-          text: t('yes') || 'Oui',
-          onPress: async () => {
-            try {
-              await DatabaseService.updateStudentStatus(student.id, newStatus);
-              showToast("Statut mis à jour");
-              loadStudents();
-            } catch {
-              showToast(t('error'));
+  const handleToggleStatus = (student: any) => {
+    if (student.status === 'ARCHIVED') {
+      Alert.alert(
+        t('edit') || "Modifier",
+        "Voulez-vous réactiver cet élève ?",
+        [
+          { text: t('cancel'), style: 'cancel' },
+          {
+            text: t('yes'),
+            onPress: async () => {
+              try {
+                await DatabaseService.reactivateStudent(student.id);
+                showToast("Élève réactivé");
+                loadStudents();
+              } catch {
+                showToast(t('error'));
+              }
             }
           }
-        }
-      ]
-    );
+        ]
+      );
+    } else {
+      setArchivingStudent(student);
+      setExitDate(new Date());
+      setOutcomeStatus('PASSED');
+      setArchiveModalVisible(true);
+    }
+  };
+
+  const handleConfirmArchive = async () => {
+    if (!archivingStudent) return;
+    try {
+      await DatabaseService.archiveStudent(
+        archivingStudent.id,
+        exitDate.toISOString().split('T')[0],
+        outcomeStatus
+      );
+      showToast("Élève archivé");
+      setArchiveModalVisible(false);
+      setArchivingStudent(null);
+      loadStudents();
+    } catch {
+      showToast(t('error'));
+    }
   };
 
   const openHistoryModal = async (student: any) => {
@@ -195,6 +233,62 @@ export function StudentsScreen() {
     }
   };
 
+  const handleExitDateChange = (event: any, date?: Date) => {
+    setShowExitDatePicker(Platform.OS === 'ios');
+    if (date) {
+      setExitDate(date);
+    }
+  };
+
+  const handleExportList = async (format: 'PDF' | 'CSV') => {
+    setExporting(true);
+    try {
+      const exportStudentsList = await DatabaseService.getFilteredStudents({
+        status: exportListType,
+        year: exportYear,
+        month: exportMonth,
+        outcomeStatus: exportOutcomeStatus
+      });
+
+      const title = exportListType === 'ACTIVE' ? t('active_students') : t('archived_students');
+
+      if (format === 'PDF') {
+        await ExportService.exportStudentsPDF(exportStudentsList, title, exportListType === 'ARCHIVED');
+        showToast(t('export_pdf_success') || "PDF Exporté !");
+      } else {
+        await ExportService.exportStudentsCSV(exportStudentsList, exportListType === 'ARCHIVED');
+        showToast(t('export_csv_success') || "CSV Exporté !");
+      }
+      setExportModalVisible(false);
+    } catch (e) {
+      showToast(t('error') || "Erreur d'exportation");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const formatDate = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString(isRTL ? 'ar' : 'fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const getTranslatedOutcome = (outcome: string) => {
+    switch (outcome) {
+      case 'PASSED': return t('passed') || 'Réussi';
+      case 'FAILED': return t('failed') || 'Raté';
+      case 'ABANDONED': return t('abandoned') || 'Abandonné';
+      default: return outcome;
+    }
+  };
+
   const renderStudent = ({ item }: { item: any }) => {
     const balance = (item.package_price || 0) - (item.paid_amount || 0);
     const isPaid = balance <= 0;
@@ -206,16 +300,20 @@ export function StudentsScreen() {
           <Text style={[styles.cardName, isRTL && styles.textRight]}>{item.name}</Text>
           <View style={[styles.cardActions, isRTL && styles.rowReverse]}>
             <TouchableOpacity style={styles.historyBtn} onPress={() => openHistoryModal(item)}>
-              <Text style={styles.historyBtnText}>📋</Text>
+              <Ionicons name="receipt-outline" size={18} color={colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.statusBtn} onPress={() => handleToggleStatus(item)}>
-              <Text style={styles.statusBtnText}>{item.status === 'ARCHIVED' ? '♻️' : '📦'}</Text>
+              <Ionicons 
+                name={item.status === 'ARCHIVED' ? "arrow-undo-outline" : "archive-outline"} 
+                size={18} 
+                color={colors.primary} 
+              />
             </TouchableOpacity>
             <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(item)}>
-              <Text style={styles.editBtnText}>✏️</Text>
+              <Ionicons name="create-outline" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDelete(item)}>
-              <Text style={styles.deleteBtnText}>🗑️</Text>
+              <Ionicons name="trash-outline" size={18} color={colors.danger} />
             </TouchableOpacity>
           </View>
         </View>
@@ -226,6 +324,29 @@ export function StudentsScreen() {
         <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 4 }]}>
           <Text style={styles.cardDetail}>📅 {t('enrolled')}: {enrolledDate}</Text>
         </View>
+
+        {item.status === 'ARCHIVED' && (
+          <View style={[styles.archiveDetailBox, isRTL && styles.rowReverse]}>
+            <Text style={styles.archiveDetailText}>
+              📅 {t('archived_on') || 'Sortie le'}: {formatDate(item.exit_date)}
+            </Text>
+            <View style={[
+              styles.outcomeBadge,
+              item.outcome_status === 'PASSED' && styles.outcomeBadgePassed,
+              item.outcome_status === 'FAILED' && styles.outcomeBadgeFailed,
+              item.outcome_status === 'ABANDONED' && styles.outcomeBadgeAbandoned,
+            ]}>
+              <Text style={[
+                styles.outcomeBadgeText,
+                item.outcome_status === 'PASSED' && styles.outcomeBadgeTextPassed,
+                item.outcome_status === 'FAILED' && styles.outcomeBadgeTextFailed,
+                item.outcome_status === 'ABANDONED' && styles.outcomeBadgeTextAbandoned,
+              ]}>
+                {getTranslatedOutcome(item.outcome_status)}
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Price and payment info */}
         <View style={[styles.paymentInfo, isRTL && styles.rowReverse]}>
@@ -275,9 +396,14 @@ export function StudentsScreen() {
       {/* Header */}
       <View style={[styles.header, isRTL && styles.rowReverse]}>
         <Text style={styles.headerTitle}>{t('students')}</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
-          <Text style={styles.addBtnText}>+ {t('add_new')}</Text>
-        </TouchableOpacity>
+        <View style={[styles.headerButtonsRow, isRTL && styles.rowReverse]}>
+          <TouchableOpacity style={styles.exportListBtn} onPress={() => setExportModalVisible(true)}>
+            <Ionicons name="download-outline" size={20} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
+            <Text style={styles.addBtnText}>{t('add_new')}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Search & Filter */}
@@ -334,65 +460,65 @@ export function StudentsScreen() {
               keyboardShouldPersistTaps="handled"
             >
               {/* Nom */}
-            <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('name')}</Text>
-            <TextInput
-              style={[styles.input, isRTL && styles.textRight]}
-              placeholder={t('name')}
-              value={name}
-              onChangeText={setName}
-              placeholderTextColor={colors.textSecondary}
-            />
+              <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('name')}</Text>
+              <TextInput
+                style={[styles.input, isRTL && styles.textRight]}
+                placeholder={t('name')}
+                value={name}
+                onChangeText={setName}
+                placeholderTextColor={colors.textSecondary}
+              />
 
-            {/* Téléphone */}
-            <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('phone')}</Text>
-            <TextInput
-              style={[styles.input, isRTL && styles.textRight]}
-              placeholder={t('phone')}
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              placeholderTextColor={colors.textSecondary}
-            />
+              {/* Téléphone */}
+              <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('phone')}</Text>
+              <TextInput
+                style={[styles.input, isRTL && styles.textRight]}
+                placeholder={t('phone')}
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                placeholderTextColor={colors.textSecondary}
+              />
 
-            {/* Prix du forfait */}
-            <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('package_price')} (DH)</Text>
-            <TextInput
-              style={[styles.input, isRTL && styles.textRight]}
-              placeholder="0"
-              value={packagePrice}
-              onChangeText={setPackagePrice}
-              keyboardType="numeric"
-              placeholderTextColor={colors.textSecondary}
-            />
+              {/* Prix du forfait */}
+              <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('package_price')} (DH)</Text>
+              <TextInput
+                style={[styles.input, isRTL && styles.textRight]}
+                placeholder="0"
+                value={packagePrice}
+                onChangeText={setPackagePrice}
+                keyboardType="numeric"
+                placeholderTextColor={colors.textSecondary}
+              />
 
-            {/* Avance (works for both new and editing) */}
-            <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>
-              {editingStudent ? 'Nouvelle Avance (Optionnel)' : t('advance')} (DH)
-            </Text>
-            <TextInput
-              style={[styles.input, isRTL && styles.textRight]}
-              placeholder="0"
-              value={advance}
-              onChangeText={setAdvance}
-              keyboardType="numeric"
-              placeholderTextColor={colors.textSecondary}
-            />
-
-            {/* Show remaining */}
-            <View style={styles.remainingBox}>
-              {editingStudent && (
-                <Text style={styles.remainingLabel}>Total déjà payé : {editingStudent?.paid_amount?.toFixed(0) || 0} DH</Text>
-              )}
-              <Text style={styles.remainingValue}>
-                Reste à payer : {
-                  Math.max(0, 
-                    (parseFloat(packagePrice) || 0) - 
-                    (editingStudent ? (editingStudent.paid_amount || 0) : 0) - 
-                    (parseFloat(advance) || 0)
-                  ).toFixed(0)
-                } DH
+              {/* Avance (works for both new and editing) */}
+              <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>
+                {editingStudent ? 'Nouvelle Avance (Optionnel)' : t('advance')} (DH)
               </Text>
-            </View>
+              <TextInput
+                style={[styles.input, isRTL && styles.textRight]}
+                placeholder="0"
+                value={advance}
+                onChangeText={setAdvance}
+                keyboardType="numeric"
+                placeholderTextColor={colors.textSecondary}
+              />
+
+              {/* Show remaining */}
+              <View style={styles.remainingBox}>
+                {editingStudent && (
+                  <Text style={styles.remainingLabel}>Total déjà payé : {editingStudent?.paid_amount?.toFixed(0) || 0} DH</Text>
+                )}
+                <Text style={styles.remainingValue}>
+                  Reste à payer : {
+                    Math.max(0, 
+                      (parseFloat(packagePrice) || 0) - 
+                      (editingStudent ? (editingStudent.paid_amount || 0) : 0) - 
+                      (parseFloat(advance) || 0)
+                    ).toFixed(0)
+                  } DH
+                </Text>
+              </View>
             </ScrollView>
 
             <View style={[styles.modalActions, isRTL && styles.rowReverse]}>
@@ -448,6 +574,232 @@ export function StudentsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ARCHIVING DETAILS FORM MODAL */}
+      <Modal
+        visible={archiveModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setArchiveModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={[styles.modalHeader, isRTL && styles.rowReverse]}>
+              <Text style={styles.modalTitle}>{t('archive_student_title') || "Archiver l'Élève"}</Text>
+              <TouchableOpacity onPress={() => setArchiveModalVisible(false)}>
+                <Ionicons name="close" size={26} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              {/* Exit Date Selector */}
+              <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('exit_date') || "Date de Sortie"}</Text>
+              <TouchableOpacity 
+                style={[styles.dateButton, isRTL && styles.rowReverse]} 
+                onPress={() => setShowExitDatePicker(true)}
+              >
+                <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} style={isRTL ? { marginLeft: 8 } : { marginRight: 8 }} />
+                <Text style={styles.dateButtonText}>{exitDate.toLocaleDateString()}</Text>
+              </TouchableOpacity>
+
+              {showExitDatePicker && (
+                <DateTimePicker
+                  value={exitDate}
+                  mode="date"
+                  display="default"
+                  onChange={handleExitDateChange}
+                />
+              )}
+
+              {/* Outcome Status Selector */}
+              <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('outcome_status') || "Statut / Résultat"}</Text>
+              <View style={[styles.outcomeChipContainer, isRTL && styles.rowReverse]}>
+                <TouchableOpacity
+                  style={[styles.outcomeChip, outcomeStatus === 'PASSED' && styles.outcomeChipPassed]}
+                  onPress={() => setOutcomeStatus('PASSED')}
+                >
+                  <Text style={[styles.outcomeChipText, outcomeStatus === 'PASSED' && styles.outcomeChipTextSelected]}>
+                    🏆 {t('passed')}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.outcomeChip, outcomeStatus === 'FAILED' && styles.outcomeChipFailed]}
+                  onPress={() => setOutcomeStatus('FAILED')}
+                >
+                  <Text style={[styles.outcomeChipText, outcomeStatus === 'FAILED' && styles.outcomeChipTextSelected]}>
+                    ❌ {t('failed')}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.outcomeChip, outcomeStatus === 'ABANDONED' && styles.outcomeChipAbandoned]}
+                  onPress={() => setOutcomeStatus('ABANDONED')}
+                >
+                  <Text style={[styles.outcomeChipText, outcomeStatus === 'ABANDONED' && styles.outcomeChipTextSelected]}>
+                    ⚠️ {t('abandoned')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity 
+                  style={[styles.modalBtn, styles.cancelBtn]} 
+                  onPress={() => setArchiveModalVisible(false)}
+                >
+                  <Text style={styles.cancelBtnText}>{t('cancel')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.modalBtn, styles.saveBtn]} 
+                  onPress={handleConfirmArchive}
+                >
+                  <Text style={styles.saveBtnText}>{t('archive_confirm') || 'Archiver'}</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ADVANCED EXPORT MODAL */}
+      <Modal
+        visible={exportModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setExportModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={[styles.modalHeader, isRTL && styles.rowReverse]}>
+              <Text style={styles.modalTitle}>{t('export_students') || "Exporter la Liste des Élèves"}</Text>
+              <TouchableOpacity onPress={() => setExportModalVisible(false)}>
+                <Ionicons name="close" size={26} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              {/* Active/Archived Selector */}
+              <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('list_type') || "Type de Liste"}</Text>
+              <View style={styles.exportListTypeRow}>
+                <TouchableOpacity 
+                  style={[styles.exportTypeTab, exportListType === 'ACTIVE' && styles.exportTypeTabActiveSelected]}
+                  onPress={() => {
+                    setExportListType('ACTIVE');
+                    setExportOutcomeStatus('ALL');
+                  }}
+                >
+                  <Text style={[styles.exportTypeTabText, exportListType === 'ACTIVE' && styles.exportTypeTabTextSelected]}>
+                    {t('active_students') || "Actifs"}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.exportTypeTab, exportListType === 'ARCHIVED' && styles.exportTypeTabArchivedSelected]}
+                  onPress={() => setExportListType('ARCHIVED')}
+                >
+                  <Text style={[styles.exportTypeTabText, exportListType === 'ARCHIVED' && styles.exportTypeTabTextSelected]}>
+                    {t('archived_students') || "Archivés"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Status Outcome Filter (Archived list only) */}
+              {exportListType === 'ARCHIVED' && (
+                <>
+                  <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('filter_by_status') || "Filtrer par statut"}</Text>
+                  <View style={[styles.outcomeChipContainer, isRTL && styles.rowReverse]}>
+                    <TouchableOpacity
+                      style={[styles.outcomeChip, exportOutcomeStatus === 'ALL' && styles.outcomeChipAll]}
+                      onPress={() => setExportOutcomeStatus('ALL')}
+                    >
+                      <Text style={[styles.outcomeChipText, exportOutcomeStatus === 'ALL' && styles.outcomeChipTextSelected]}>
+                        🌍 {t('export_all') || 'Tous'}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.outcomeChip, exportOutcomeStatus === 'PASSED' && styles.outcomeChipPassed]}
+                      onPress={() => setExportOutcomeStatus('PASSED')}
+                    >
+                      <Text style={[styles.outcomeChipText, exportOutcomeStatus === 'PASSED' && styles.outcomeChipTextSelected]}>
+                        🏆 {t('passed')}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.outcomeChip, exportOutcomeStatus === 'FAILED' && styles.outcomeChipFailed]}
+                      onPress={() => setExportOutcomeStatus('FAILED')}
+                    >
+                      <Text style={[styles.outcomeChipText, exportOutcomeStatus === 'FAILED' && styles.outcomeChipTextSelected]}>
+                        ❌ {t('failed')}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.outcomeChip, exportOutcomeStatus === 'ABANDONED' && styles.outcomeChipAbandoned]}
+                      onPress={() => setExportOutcomeStatus('ABANDONED')}
+                    >
+                      <Text style={[styles.outcomeChipText, exportOutcomeStatus === 'ABANDONED' && styles.outcomeChipTextSelected]}>
+                        ⚠️ {t('abandoned')}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+
+              {/* Date Inscription: Year & Month Filter */}
+              <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('filter_by_date') || "Filtrer par date (Inscription)"}</Text>
+              
+              <Text style={styles.pickerSubLabel}>{t('select_year') || "Année"}</Text>
+              <View style={[styles.chipContainer, isRTL && styles.rowReverse]}>
+                {['ALL', '2024', '2025', '2026', '2027'].map(year => (
+                  <TouchableOpacity
+                    key={year}
+                    style={[styles.formChip, exportYear === year && styles.activeFormChip]}
+                    onPress={() => setExportYear(year)}
+                  >
+                    <Text style={[styles.chipText, exportYear === year && styles.activeFormChipText]}>
+                      {year === 'ALL' ? (t('export_all') || 'Toutes') : year}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.pickerSubLabel}>{t('select_month') || "Mois"}</Text>
+              <View style={[styles.chipContainer, isRTL && styles.rowReverse]}>
+                {['ALL', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'].map(month => {
+                  const monthName = month === 'ALL' ? (t('export_all') || 'Tous') : month;
+                  return (
+                    <TouchableOpacity
+                      key={month}
+                      style={[styles.formChip, exportMonth === month && styles.activeFormChip]}
+                      onPress={() => setExportMonth(month)}
+                    >
+                      <Text style={[styles.chipText, exportMonth === month && styles.activeFormChipText]}>
+                        {monthName}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <View style={[styles.modalActions, { marginTop: 30 }]}>
+                <TouchableOpacity
+                  style={[styles.exportActionBtn, styles.exportActionBtnPDF]}
+                  onPress={() => handleExportList('PDF')}
+                  disabled={exporting}
+                >
+                  <Ionicons name="document-text-outline" size={20} color="#fff" />
+                  <Text style={styles.exportActionBtnText}>{t('export_pdf_button') || "PDF"}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.exportActionBtn, styles.exportActionBtnCSV]}
+                  onPress={() => handleExportList('CSV')}
+                  disabled={exporting}
+                >
+                  <Ionicons name="grid-outline" size={20} color="#fff" />
+                  <Text style={styles.exportActionBtnText}>{t('export_csv_button') || "CSV"}</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -478,6 +830,20 @@ const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: colors.text,
+  },
+  headerButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  exportListBtn: {
+    backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff',
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   addBtn: {
     backgroundColor: colors.primary,
@@ -540,32 +906,20 @@ const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
     borderRadius: 10,
     padding: 10,
   },
-  historyBtnText: {
-    fontSize: 16,
-  },
   statusBtn: {
     backgroundColor: isDark ? 'rgba(99, 102, 241, 0.15)' : '#E0E7FF',
     borderRadius: 10,
     padding: 10,
-  },
-  statusBtnText: {
-    fontSize: 16,
   },
   editBtn: {
     backgroundColor: colors.iconBg,
     borderRadius: 10,
     padding: 10,
   },
-  editBtnText: {
-    fontSize: 16,
-  },
   deleteBtn: {
     backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
     borderRadius: 10,
     padding: 10,
-  },
-  deleteBtnText: {
-    fontSize: 16,
   },
   row: {
     flexDirection: 'row',
@@ -737,7 +1091,7 @@ const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
     fontWeight: '600',
     color: colors.textSecondary,
     marginBottom: 8,
-    marginTop: 8,
+    marginTop: 14,
   },
   input: {
     backgroundColor: colors.background,
@@ -802,4 +1156,192 @@ const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
   },
+
+  // New Archiving & Export Elements
+  archiveDetailBox: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc',
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  archiveDetailText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  outcomeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  outcomeBadgePassed: {
+    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7',
+  },
+  outcomeBadgeFailed: {
+    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2',
+  },
+  outcomeBadgeAbandoned: {
+    backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7',
+  },
+  outcomeBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  outcomeBadgeTextPassed: {
+    color: colors.success,
+  },
+  outcomeBadgeTextFailed: {
+    color: colors.danger,
+  },
+  outcomeBadgeTextAbandoned: {
+    color: isDark ? '#fbbf24' : '#d97706',
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 12,
+  },
+  dateButtonText: {
+    fontSize: 15,
+    color: colors.text,
+    fontWeight: '500',
+  },
+  outcomeChipContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  outcomeChip: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  outcomeChipAll: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  outcomeChipPassed: {
+    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#bbf7d0',
+    borderColor: colors.success,
+  },
+  outcomeChipFailed: {
+    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.2)' : '#fecaca',
+    borderColor: colors.danger,
+  },
+  outcomeChipAbandoned: {
+    backgroundColor: isDark ? 'rgba(245, 158, 11, 0.2)' : '#fde68a',
+    borderColor: isDark ? '#fbbf24' : '#d97706',
+  },
+  outcomeChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  outcomeChipTextSelected: {
+    color: isDark ? '#fff' : '#000',
+    fontWeight: '700',
+  },
+  exportListTypeRow: {
+    flexDirection: 'row',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 12,
+  },
+  exportTypeTab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  exportTypeTabActiveSelected: {
+    backgroundColor: colors.primary,
+  },
+  exportTypeTabArchivedSelected: {
+    backgroundColor: colors.primary,
+  },
+  exportTypeTabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  exportTypeTabTextSelected: {
+    color: '#fff',
+  },
+  pickerSubLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  chipContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  formChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  activeFormChip: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  chipText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  activeFormChipText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  exportActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  exportActionBtnPDF: {
+    backgroundColor: '#ef4444',
+  },
+  exportActionBtnCSV: {
+    backgroundColor: '#16a34a',
+  },
+  exportActionBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  optionalLabel: {
+    fontSize: 12,
+    fontWeight: 'normal',
+    color: colors.textSecondary,
+  },
 });
+

@@ -28,6 +28,10 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [showFabMenu, setShowFabMenu] = useState(false);
   const [showAlertsModal, setShowAlertsModal] = useState(false);
+  
+  // TVA states
+  const [annualTvaCount, setAnnualTvaCount] = useState(0);
+  const [annualTvaTotal, setAnnualTvaTotal] = useState(0);
 
   useEffect(() => {
     loadDashboardData();
@@ -36,6 +40,17 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
   const loadDashboardData = async () => {
     const { income, expense } = await DatabaseService.getFinancialSummaryByPeriod(period);
     setKpi({ income, expense, net: income - expense });
+
+    if (period === 'YEAR') {
+      try {
+        const currentYearStr = new Date().getFullYear().toString();
+        const tvaData = await DatabaseService.getAnnualTVAReport(currentYearStr);
+        setAnnualTvaCount(tvaData.studentCount);
+        setAnnualTvaTotal(tvaData.totalTVA);
+      } catch (e) {
+        console.log('Error calculating annual TVA for dashboard', e);
+      }
+    }
 
     const newAlerts: AlertItem[] = [];
 
@@ -188,6 +203,19 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
               {kpi.net.toLocaleString()} DH
             </Text>
           </View>
+          {period === 'YEAR' && (
+            <View style={[styles.kpiCard, styles.kpiTva]}>
+              <Text style={[styles.kpiLabel, isRTL && styles.rtlText]}>
+                {t('tva_calculation') || 'TVA Estimée'}
+              </Text>
+              <Text style={[styles.kpiValue, isRTL && styles.rtlText, styles.textTva]}>
+                {annualTvaTotal.toLocaleString()} DH
+              </Text>
+              <Text style={[styles.kpiSubtext, isRTL && styles.rtlText]}>
+                ({annualTvaCount} {t('students') || 'élèves inscrits'})
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* MENU GRID */}
@@ -518,6 +546,10 @@ const getStyles = (colors: ThemeColors, isDark: boolean, isRTL: boolean) => Styl
     backgroundColor: isDark ? '#111827' : '#eff6ff',
     borderColor: isDark ? '#1e3a8a' : '#bfdbfe',
   },
+  kpiTva: {
+    backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff',
+    borderColor: isDark ? 'rgba(59, 130, 246, 0.3)' : '#bfdbfe',
+  },
   kpiLabel: {
     fontSize: 14,
     fontWeight: '600',
@@ -530,9 +562,16 @@ const getStyles = (colors: ThemeColors, isDark: boolean, isRTL: boolean) => Styl
     fontSize: 26,
     fontWeight: 'bold',
   },
+  kpiSubtext: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+    fontWeight: '500',
+  },
   textSuccess: { color: colors.success },
   textDanger: { color: colors.danger },
   textPrimary: { color: colors.primary },
+  textTva: { color: '#3b82f6' },
 
   // Menu grid
   menuGrid: {

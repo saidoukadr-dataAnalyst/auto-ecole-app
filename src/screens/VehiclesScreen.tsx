@@ -285,7 +285,7 @@ export function VehiclesScreen() {
       <View style={[styles.header, isRTL && styles.rowReverse]}>
         <Text style={styles.headerTitle}>{t('vehicles')}</Text>
         <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
-          <Text style={styles.addBtnText}>+ {t('add_new')}</Text>
+          <Text style={styles.addBtnText}>{t('add_new')}</Text>
         </TouchableOpacity>
       </View>
 

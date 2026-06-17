@@ -23,6 +23,10 @@ export class DatabaseService {
         name TEXT NOT NULL,
         package_price REAL NOT NULL,
         phone TEXT,
+        status TEXT DEFAULT "ACTIVE",
+        exit_date TEXT,
+        outcome_status TEXT,
+        is_deleted INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
@@ -56,6 +60,7 @@ export class DatabaseService {
         vehicle_id INTEGER,
         description TEXT,
         payment_method TEXT,
+        is_deleted INTEGER DEFAULT 0,
         FOREIGN KEY (category_id) REFERENCES Categories (id),
         FOREIGN KEY (student_id) REFERENCES Students (id),
         FOREIGN KEY (vehicle_id) REFERENCES Vehicles (id)
@@ -111,6 +116,22 @@ export class DatabaseService {
       await this.db.execAsync('ALTER TABLE Students ADD COLUMN status TEXT DEFAULT "ACTIVE";');
     } catch (e) {}
 
+    try {
+      await this.db.execAsync('ALTER TABLE Students ADD COLUMN exit_date TEXT;');
+    } catch (e) {}
+
+    try {
+      await this.db.execAsync('ALTER TABLE Students ADD COLUMN outcome_status TEXT;');
+    } catch (e) {}
+
+    try {
+      await this.db.execAsync('ALTER TABLE Students ADD COLUMN is_deleted INTEGER DEFAULT 0;');
+    } catch (e) {}
+
+    try {
+      await this.db.execAsync('ALTER TABLE Transactions ADD COLUMN is_deleted INTEGER DEFAULT 0;');
+    } catch (e) {}
+
     // Migration pour ajouter la catégorie "Autre"
     try {
       await this.db.execAsync(`
@@ -153,9 +174,10 @@ export class DatabaseService {
   static async getStudents(): Promise<any[]> {
     if (!this.db) await this.initDB();
     return await this.db!.getAllAsync(`
-      SELECT s.id, s.name, s.package_price, s.phone, s.created_at, s.status,
-        COALESCE((SELECT SUM(t.amount) FROM Transactions t WHERE t.student_id = s.id AND t.type = 'INCOME'), 0) as paid_amount
+      SELECT s.id, s.name, s.package_price, s.phone, s.created_at, s.status, s.exit_date, s.outcome_status,
+        COALESCE((SELECT SUM(t.amount) FROM Transactions t WHERE t.student_id = s.id AND t.type = 'INCOME' AND t.is_deleted = 0), 0) as paid_amount
       FROM Students s
+      WHERE s.is_deleted = 0
       ORDER BY s.created_at DESC
     `);
   }
@@ -224,7 +246,7 @@ export class DatabaseService {
             END
           FROM Transactions t
           JOIN Categories c ON t.category_id = c.id
-          WHERE t.vehicle_id = v.id AND c.name = 'Carburant' AND t.fuel_liters IS NOT NULL
+          WHERE t.vehicle_id = v.id AND c.name = 'Carburant' AND t.fuel_liters IS NOT NULL AND t.is_deleted = 0
         ) as avg_consumption
       FROM Vehicles v
       ORDER BY v.created_at DESC
@@ -289,7 +311,7 @@ export class DatabaseService {
       SELECT t.id, t.amount, t.description, t.transaction_date as date, c.name as category_name
       FROM Transactions t
       LEFT JOIN Categories c ON t.category_id = c.id
-      WHERE t.student_id = ? AND t.type = 'INCOME'
+      WHERE t.student_id = ? AND t.type = 'INCOME' AND t.is_deleted = 0
       ORDER BY t.transaction_date DESC
     `, studentId);
   }
@@ -302,9 +324,12 @@ export class DatabaseService {
   static async getTransactions(): Promise<any[]> {
     if (!this.db) await this.initDB();
     return await this.db!.getAllAsync(`
-      SELECT t.id, t.amount, t.type, t.description, t.transaction_date as date, c.name as category_name
+      SELECT t.id, t.amount, t.type, t.description, t.transaction_date as date, 
+             t.category_id, t.student_id, t.vehicle_id, t.staff_id, t.fuel_liters, t.mileage_at_transaction,
+             c.name as category_name
       FROM Transactions t
       LEFT JOIN Categories c ON t.category_id = c.id
+      WHERE t.is_deleted = 0
       ORDER BY t.transaction_date DESC
     `);
   }
@@ -317,7 +342,7 @@ export class DatabaseService {
       SELECT t.id, t.amount, t.type, t.description, t.transaction_date as date, c.name as category_name
       FROM Transactions t
       LEFT JOIN Categories c ON t.category_id = c.id
-      WHERE t.transaction_date LIKE ?
+      WHERE t.transaction_date LIKE ? AND t.is_deleted = 0
       ORDER BY t.transaction_date DESC
     `, [likePattern]);
   }
@@ -330,7 +355,7 @@ export class DatabaseService {
     if (!this.db) await this.initDB();
     return await this.db!.getAllAsync(`
       SELECT s.id, s.name, s.phone, s.role, s.base_salary, s.created_at,
-        COALESCE((SELECT SUM(t.amount) FROM Transactions t WHERE t.staff_id = s.id AND t.type = 'EXPENSE'), 0) as paid_amount
+        COALESCE((SELECT SUM(t.amount) FROM Transactions t WHERE t.staff_id = s.id AND t.type = 'EXPENSE' AND t.is_deleted = 0), 0) as paid_amount
       FROM Staff s
       ORDER BY s.created_at DESC
     `);
@@ -421,7 +446,7 @@ export class DatabaseService {
         COALESCE(SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END), 0) as income,
         COALESCE(SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END), 0) as expense
       FROM Transactions
-      WHERE transaction_date LIKE ?
+      WHERE transaction_date LIKE ? AND is_deleted = 0
     `, [likePattern]);
 
     return result || { income: 0, expense: 0 };
@@ -437,8 +462,8 @@ export class DatabaseService {
     if (period === 'TODAY') {
       startStr = startDate.toISOString().split('T')[0] + ' 00:00:00';
     } else if (period === 'WEEK') {
-      const day = startDate.getDay() || 7; // Get current day number, converting Sun. to 7
-      if (day !== 1) startDate.setHours(-24 * (day - 1)); // Set to Monday
+      const day = startDate.getDay() || 7;
+      if (day !== 1) startDate.setHours(-24 * (day - 1));
       startStr = startDate.toISOString().split('T')[0] + ' 00:00:00';
     } else if (period === 'MONTH') {
       startDate.setDate(1);
@@ -453,7 +478,7 @@ export class DatabaseService {
         COALESCE(SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END), 0) as income,
         COALESCE(SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END), 0) as expense
       FROM Transactions
-      WHERE transaction_date BETWEEN ? AND ?
+      WHERE (transaction_date BETWEEN ? AND ?) AND is_deleted = 0
     `, [startStr, endDate]);
 
     return result || { income: 0, expense: 0 };
@@ -499,5 +524,192 @@ export class DatabaseService {
   static async getCategories(type: 'INCOME' | 'EXPENSE'): Promise<any[]> {
     if (!this.db) await this.initDB();
     return await this.db!.getAllAsync('SELECT * FROM Categories WHERE type = ?', type);
+  }
+
+  // =========================================================================
+  // ARCHIVING & FILTERING
+  // =========================================================================
+
+  static async archiveStudent(id: number, exitDate: string, outcomeStatus: 'PASSED' | 'FAILED' | 'ABANDONED'): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.runAsync(
+      'UPDATE Students SET status = "ARCHIVED", exit_date = ?, outcome_status = ? WHERE id = ?',
+      exitDate, outcomeStatus, id
+    );
+  }
+
+  static async reactivateStudent(id: number): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.runAsync(
+      'UPDATE Students SET status = "ACTIVE", exit_date = NULL, outcome_status = NULL WHERE id = ?',
+      id
+    );
+  }
+
+  static async getFilteredStudents(options: {
+    status?: 'ACTIVE' | 'ARCHIVED';
+    year?: string;
+    month?: string;
+    outcomeStatus?: string;
+  }): Promise<any[]> {
+    if (!this.db) await this.initDB();
+    
+    let query = `
+      SELECT s.id, s.name, s.package_price, s.phone, s.created_at, s.status, s.exit_date, s.outcome_status,
+        COALESCE((SELECT SUM(t.amount) FROM Transactions t WHERE t.student_id = s.id AND t.type = 'INCOME' AND t.is_deleted = 0), 0) as paid_amount
+      FROM Students s
+      WHERE s.is_deleted = 0
+    `;
+    const params: any[] = [];
+
+    if (options.status) {
+      query += ` AND s.status = ?`;
+      params.push(options.status);
+    }
+
+    if (options.outcomeStatus && options.outcomeStatus !== 'ALL') {
+      query += ` AND s.outcome_status = ?`;
+      params.push(options.outcomeStatus);
+    }
+
+    if (options.year && options.year !== 'ALL') {
+      query += ` AND strftime('%Y', s.created_at) = ?`;
+      params.push(options.year);
+    }
+
+    if (options.month && options.month !== 'ALL') {
+      query += ` AND strftime('%m', s.created_at) = ?`;
+      params.push(options.month);
+    }
+
+    query += ` ORDER BY s.created_at DESC`;
+
+    return await this.db!.getAllAsync(query, params);
+  }
+
+  // =========================================================================
+  // TVA CALCULATIONS
+  // =========================================================================
+
+  static async getAnnualTVAReport(year: string): Promise<{ studentCount: number; totalTVA: number; students: any[] }> {
+    if (!this.db) await this.initDB();
+    
+    const students = await this.db!.getAllAsync<any>(
+      `SELECT id, name, phone, created_at, package_price 
+       FROM Students 
+       WHERE strftime('%Y', created_at) = ? AND is_deleted = 0
+       ORDER BY created_at DESC`,
+      [year]
+    );
+
+    const count = students.length;
+    return {
+      studentCount: count,
+      totalTVA: count * 850,
+      students
+    };
+  }
+
+  // =========================================================================
+  // TRANSACTION UPDATES
+  // =========================================================================
+
+  static async updateTransaction(
+    id: number,
+    amount: number,
+    categoryId: number,
+    studentId: number | null,
+    vehicleId: number | null,
+    description: string,
+    fuelLiters?: number | null,
+    mileageAtTransaction?: number | null,
+    staffId?: number | null,
+    date?: string
+  ): Promise<void> {
+    if (!this.db) await this.initDB();
+    if (date) {
+      await this.db!.runAsync(
+        `UPDATE Transactions 
+         SET amount = ?, category_id = ?, student_id = ?, vehicle_id = ?, description = ?, fuel_liters = ?, mileage_at_transaction = ?, staff_id = ?, transaction_date = ?
+         WHERE id = ?`,
+        amount, categoryId, studentId, vehicleId, description, fuelLiters || null, mileageAtTransaction || null, staffId || null, date, id
+      );
+    } else {
+      await this.db!.runAsync(
+        `UPDATE Transactions 
+         SET amount = ?, category_id = ?, student_id = ?, vehicle_id = ?, description = ?, fuel_liters = ?, mileage_at_transaction = ?, staff_id = ?
+         WHERE id = ?`,
+        amount, categoryId, studentId, vehicleId, description, fuelLiters || null, mileageAtTransaction || null, staffId || null, id
+      );
+    }
+  }
+
+  // =========================================================================
+  // CORBEILLE (TRASH / SOFT DELETE)
+  // =========================================================================
+
+  static async softDeleteStudent(id: number): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.runAsync('UPDATE Students SET is_deleted = 1 WHERE id = ?', id);
+  }
+
+  static async restoreStudent(id: number): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.runAsync('UPDATE Students SET is_deleted = 0 WHERE id = ?', id);
+  }
+
+  static async hardDeleteStudent(id: number): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.runAsync('UPDATE Transactions SET student_id = NULL WHERE student_id = ?', id);
+    await this.db!.runAsync('DELETE FROM Students WHERE id = ?', id);
+  }
+
+  static async softDeleteTransaction(id: number): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.runAsync('UPDATE Transactions SET is_deleted = 1 WHERE id = ?', id);
+  }
+
+  static async restoreTransaction(id: number): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.runAsync('UPDATE Transactions SET is_deleted = 0 WHERE id = ?', id);
+  }
+
+  static async hardDeleteTransaction(id: number): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.runAsync('DELETE FROM Transactions WHERE id = ?', id);
+  }
+
+  static async getTrashedItems(): Promise<{ students: any[]; transactions: any[] }> {
+    if (!this.db) await this.initDB();
+
+    const students = await this.db!.getAllAsync(`
+      SELECT s.id, s.name, s.package_price, s.phone, s.created_at, s.status
+      FROM Students s
+      WHERE s.is_deleted = 1
+      ORDER BY s.created_at DESC
+    `);
+
+    const transactions = await this.db!.getAllAsync(`
+      SELECT t.id, t.amount, t.type, t.description, t.transaction_date as date, c.name as category_name
+      FROM Transactions t
+      LEFT JOIN Categories c ON t.category_id = c.id
+      WHERE t.is_deleted = 1
+      ORDER BY t.transaction_date DESC
+    `);
+
+    return { students, transactions };
+  }
+
+  static async emptyTrash(): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.withTransactionAsync(async () => {
+      await this.db!.runAsync(`
+        UPDATE Transactions 
+        SET student_id = NULL 
+        WHERE student_id IN (SELECT id FROM Students WHERE is_deleted = 1)
+      `);
+      await this.db!.runAsync('DELETE FROM Students WHERE is_deleted = 1');
+      await this.db!.runAsync('DELETE FROM Transactions WHERE is_deleted = 1');
+    });
   }
 }
