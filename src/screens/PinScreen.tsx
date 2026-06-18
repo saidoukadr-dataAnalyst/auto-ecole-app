@@ -19,6 +19,7 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
 
   const [recoveryKey, setRecoveryKey] = useState('');
   const [deviceId, setDeviceId] = useState('');
+  const [schoolName, setSchoolName] = useState('Auto-École');
 
   // Animated scales for 4 dots
   const dotScales = useRef([
@@ -39,6 +40,8 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
         }
         const id = await SecurityService.getDeviceId();
         setDeviceId(id);
+        const name = await SecurityService.getSchoolName();
+        setSchoolName(name);
       } catch {
         showToast(t('pin_storage_error'));
       } finally {
@@ -247,6 +250,8 @@ export const PinScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
         <View style={styles.lockIconContainer}>
           <Text style={styles.lockIcon}>🔐</Text>
         </View>
+        <Text style={[styles.schoolTitle, isRTL && { textAlign: 'right' }]}>{schoolName}</Text>
+        <Text style={[styles.schoolSubtitle, isRTL && { textAlign: 'right' }]}>By Oukadr</Text>
         <Text style={styles.title}>{getTitle()}</Text>
         <Text style={styles.subtitle}>{getSubtitle()}</Text>
 
@@ -365,12 +370,28 @@ const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   lockIcon: {
     fontSize: 36,
   },
+  schoolTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: isDark ? '#4F46E5' : '#2563eb', // Brand color
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  schoolSubtitle: {
+    fontSize: 12,
+    color: isDark ? '#9ca3af' : '#64748b',
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 24,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
   title: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '800',
     color: isDark ? '#ffffff' : '#0f172a',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
     letterSpacing: 0.5,
   },
   subtitle: {

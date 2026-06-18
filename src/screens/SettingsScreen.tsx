@@ -5,12 +5,13 @@ import { AuthContext } from '../../App';
 import { DatabaseService } from '../services/DatabaseService';
 import { ExportService } from '../services/ExportService';
 import { SecurityService } from '../services/SecurityService';
+import { BackupService } from '../services/BackupService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
 import { useTheme } from '../theme/ThemeContext';
 import { ThemeColors } from '../theme/colors';
 
-type ActionKey = 'pdf' | 'csv' | 'backup' | 'change_pin' | 'lock' | 'tva' | 'trash';
+type ActionKey = 'pdf' | 'csv' | 'backup' | 'change_pin' | 'lock' | 'tva' | 'trash' | 'school_name' | 'export_backup' | 'import_backup';
 
 export function SettingsScreen() {
   const { t, isRTL } = useLanguage();
@@ -36,6 +37,10 @@ export function SettingsScreen() {
   const [trashedStudents, setTrashedStudents] = useState<any[]>([]);
   const [trashedTransactions, setTrashedTransactions] = useState<any[]>([]);
   const [loadingTrash, setLoadingTrash] = useState(false);
+
+  // School name edit state
+  const [showSchoolModal, setShowSchoolModal] = useState(false);
+  const [schoolNameInput, setSchoolNameInput] = useState('');
 
   const loadTvaData = async (year: string) => {
     setLoadingTva(true);
@@ -86,6 +91,21 @@ export function SettingsScreen() {
         case 'backup':
           await ExportService.backupDatabase();
           showToast(t('backup_success'));
+          break;
+        case 'export_backup':
+          await BackupService.exportBackup();
+          showToast(t('backup_success'));
+          break;
+        case 'import_backup':
+          const imported = await BackupService.importBackup();
+          if (imported) {
+            showToast(t('restored_success') || 'Données restaurées.');
+          }
+          break;
+        case 'school_name':
+          const currentName = await SecurityService.getSchoolName();
+          setSchoolNameInput(currentName);
+          setShowSchoolModal(true);
           break;
         case 'change_pin':
           setShowPinModal(true);
@@ -260,17 +280,31 @@ export function SettingsScreen() {
       title: t('local_backup') || 'Sauvegarde',
       items: [
         {
-          key: 'backup',
-          icon: '💾',
-          label: t('backup_database'),
-          description: t('backup_database_desc'),
-          color: '#6366f1',
+          key: 'export_backup',
+          icon: '📤',
+          label: t('export_backup') || 'Créer une Sauvegarde',
+          description: t('backup_database_desc') || 'Exporter les données sous forme de fichier JSON',
+          color: '#10b981',
+        },
+        {
+          key: 'import_backup',
+          icon: '📥',
+          label: t('import_backup') || 'Restaurer une Sauvegarde',
+          description: 'Importer des données à partir d\'un fichier JSON',
+          color: '#f59e0b',
         },
       ],
     },
     {
       title: t('trash') || 'Administration',
       items: [
+        {
+          key: 'school_name',
+          icon: '🏫',
+          label: t('school_name') || 'Nom de l\'Auto-École',
+          description: t('edit_school_name') || 'Personnaliser le nom affiché',
+          color: '#8b5cf6',
+        },
         {
           key: 'trash',
           icon: '🗑️',
@@ -281,6 +315,16 @@ export function SettingsScreen() {
       ],
     },
   ];
+
+  const handleSaveSchoolName = async () => {
+    if (!schoolNameInput.trim()) {
+      showToast(t('fill_required'));
+      return;
+    }
+    await SecurityService.saveSchoolName(schoolNameInput.trim());
+    showToast(t('school_name_updated') || 'Nom de l\'école mis à jour.');
+    setShowSchoolModal(false);
+  };
 
   const handleChangePin = async () => {
     if (!currentPin || !newPin || !confirmPin) {
@@ -359,6 +403,40 @@ export function SettingsScreen() {
           </View>
         ))}
       </ScrollView>
+
+      {/* EDIT SCHOOL NAME MODAL */}
+      <Modal visible={showSchoolModal} animationType="slide" transparent>
+        <KeyboardAvoidingView 
+          style={styles.modalOverlay} 
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalContent}>
+            <Text style={[styles.modalTitle, isRTL && styles.textRTL]}>{t('edit_school_name')}</Text>
+
+            <Text style={[styles.fieldLabel, isRTL && styles.textRTL]}>{t('school_name')}</Text>
+            <TextInput
+              style={[styles.input, isRTL && styles.textRTL]}
+              value={schoolNameInput}
+              onChangeText={setSchoolNameInput}
+              placeholder={t('school_name')}
+              placeholderTextColor={colors.textSecondary}
+              maxLength={40}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.cancelBtn]}
+                onPress={() => setShowSchoolModal(false)}
+              >
+                <Text style={styles.cancelBtnText}>{t('cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.saveBtn]} onPress={handleSaveSchoolName}>
+                <Text style={styles.saveBtnText}>{t('save')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* CHANGE PIN MODAL */}
       <Modal visible={showPinModal} animationType="slide" transparent>

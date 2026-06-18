@@ -605,7 +605,7 @@ export class DatabaseService {
     const count = students.length;
     return {
       studentCount: count,
-      totalTVA: count * 850,
+      totalTVA: count * 450,
       students
     };
   }
@@ -711,5 +711,36 @@ export class DatabaseService {
       await this.db!.runAsync('DELETE FROM Students WHERE is_deleted = 1');
       await this.db!.runAsync('DELETE FROM Transactions WHERE is_deleted = 1');
     });
+  }
+
+  static async getFinancialHistoryLast6Months(): Promise<{ month: string; income: number; expense: number }[]> {
+    if (!this.db) await this.initDB();
+    const result: { month: string; income: number; expense: number }[] = [];
+    const now = new Date();
+    
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const likePattern = `${year}-${month}-%`;
+      
+      const summary = await this.db!.getFirstAsync<{ income: number; expense: number }>(`
+        SELECT 
+          COALESCE(SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END), 0) as income,
+          COALESCE(SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END), 0) as expense
+        FROM Transactions
+        WHERE transaction_date LIKE ? AND is_deleted = 0
+      `, [likePattern]);
+      
+      const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'];
+      const monthName = monthNames[d.getMonth()];
+      
+      result.push({
+        month: `${monthName} ${String(year).slice(-2)}`,
+        income: summary?.income || 0,
+        expense: summary?.expense || 0
+      });
+    }
+    return result;
   }
 }

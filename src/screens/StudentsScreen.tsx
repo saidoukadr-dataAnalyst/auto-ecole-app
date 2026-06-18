@@ -240,6 +240,28 @@ export function StudentsScreen() {
     }
   };
 
+  const getExportTitle = () => {
+    let title = exportListType === 'ACTIVE' ? t('active_students') : t('archived_students');
+    
+    if (exportListType === 'ARCHIVED' && exportOutcomeStatus !== 'ALL') {
+      title += ` - ${getTranslatedOutcome(exportOutcomeStatus)}`;
+    }
+    
+    if (exportYear !== 'ALL') {
+      title += ` ${exportYear}`;
+    }
+    
+    if (exportMonth !== 'ALL') {
+      const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+      const monthIdx = parseInt(exportMonth) - 1;
+      if (monthIdx >= 0 && monthIdx < 12) {
+        title += ` - ${monthNames[monthIdx]}`;
+      }
+    }
+    
+    return title;
+  };
+
   const handleExportList = async (format: 'PDF' | 'CSV') => {
     setExporting(true);
     try {
@@ -250,13 +272,13 @@ export function StudentsScreen() {
         outcomeStatus: exportOutcomeStatus
       });
 
-      const title = exportListType === 'ACTIVE' ? t('active_students') : t('archived_students');
+      const title = getExportTitle();
 
       if (format === 'PDF') {
         await ExportService.exportStudentsPDF(exportStudentsList, title, exportListType === 'ARCHIVED');
         showToast(t('export_pdf_success') || "PDF Exporté !");
       } else {
-        await ExportService.exportStudentsCSV(exportStudentsList, exportListType === 'ARCHIVED');
+        await ExportService.exportStudentsCSV(exportStudentsList, exportListType === 'ARCHIVED', title);
         showToast(t('export_csv_success') || "CSV Exporté !");
       }
       setExportModalVisible(false);
@@ -557,19 +579,42 @@ export function StudentsScreen() {
             {loadingHistory ? (
               <ActivityIndicator size="large" color={colors.primary} style={{ margin: 20 }} />
             ) : (
-              <FlatList
-                data={studentHistory}
-                keyExtractor={(item) => String(item.id)}
-                showsVerticalScrollIndicator={false}
-                renderItem={({ item }) => (
-                  <View style={styles.historyCard}>
-                    <Text style={styles.historyDate}>{new Date(item.date).toLocaleDateString()}</Text>
-                    <Text style={styles.historyAmount}>+{item.amount} DH</Text>
-                    {item.description ? <Text style={styles.historyDesc}>{item.description}</Text> : null}
-                  </View>
+              <>
+                <FlatList
+                  data={studentHistory}
+                  keyExtractor={(item) => String(item.id)}
+                  showsVerticalScrollIndicator={false}
+                  renderItem={({ item }) => (
+                    <View style={styles.historyCard}>
+                      <Text style={styles.historyDate}>{new Date(item.date).toLocaleDateString()}</Text>
+                      <Text style={styles.historyAmount}>+{item.amount} DH</Text>
+                      {item.description ? <Text style={styles.historyDesc}>{item.description}</Text> : null}
+                    </View>
+                  )}
+                  ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 20, color: colors.textSecondary }}>Aucun paiement enregistré.</Text>}
+                />
+                
+                {selectedStudentForHistory && (
+                  <TouchableOpacity 
+                    style={[
+                      styles.receiptBtn, 
+                      studentHistory.length === 0 && styles.receiptBtnDisabled
+                    ]} 
+                    onPress={() => {
+                      if (studentHistory.length === 0) {
+                        showToast(t('no_payments_receipt'));
+                        return;
+                      }
+                      ExportService.exportStudentReceiptPDF(selectedStudentForHistory, studentHistory);
+                    }}
+                    disabled={studentHistory.length === 0}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="receipt-outline" size={18} color="#fff" />
+                    <Text style={styles.receiptBtnText}>{t('generate_receipt')}</Text>
+                  </TouchableOpacity>
                 )}
-                ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 20, color: colors.textSecondary }}>Aucun paiement enregistré.</Text>}
-              />
+              </>
             )}
           </View>
         </View>
@@ -1342,6 +1387,25 @@ const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
     fontSize: 12,
     fontWeight: 'normal',
     color: colors.textSecondary,
+  },
+  receiptBtn: {
+    backgroundColor: colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 14,
+    borderRadius: 12,
+    marginTop: 16,
+    gap: 8,
+  },
+  receiptBtnDisabled: {
+    backgroundColor: colors.border,
+    opacity: 0.6,
+  },
+  receiptBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
   },
 });
 

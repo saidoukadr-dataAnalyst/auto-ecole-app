@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DatabaseService } from '../services/DatabaseService';
+import { SecurityService } from '../services/SecurityService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
 import { useTheme } from '../theme/ThemeContext';
@@ -28,6 +29,8 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [showFabMenu, setShowFabMenu] = useState(false);
   const [showAlertsModal, setShowAlertsModal] = useState(false);
+  const [schoolName, setSchoolName] = useState('Auto-École');
+  const [chartData, setChartData] = useState<{ month: string; income: number; expense: number }[]>([]);
   
   // TVA states
   const [annualTvaCount, setAnnualTvaCount] = useState(0);
@@ -35,9 +38,18 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
 
   useEffect(() => {
     loadDashboardData();
-  }, [period]);
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadDashboardData();
+    });
+    return unsubscribe;
+  }, [navigation, period]);
 
   const loadDashboardData = async () => {
+    try {
+      const sName = await SecurityService.getSchoolName();
+      setSchoolName(sName);
+    } catch (e) {}
+
     const { income, expense } = await DatabaseService.getFinancialSummaryByPeriod(period);
     setKpi({ income, expense, net: income - expense });
 
@@ -107,6 +119,13 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
       console.log('Error loading today transactions');
     }
 
+    try {
+      const history = await DatabaseService.getFinancialHistoryLast6Months();
+      setChartData(history);
+    } catch (e) {
+      console.log('Error loading chart history', e);
+    }
+
     setAlerts(newAlerts);
   };
 
@@ -131,7 +150,10 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* HEADER */}
       <View style={[styles.header, isRTL && styles.rtlRow]}>
-        <Text style={styles.headerTitle}>{t('app_name')}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.headerTitle, isRTL && styles.rtlText]} numberOfLines={1}>{schoolName}</Text>
+          <Text style={[styles.headerSubtitle, isRTL && styles.rtlText]}>By Oukadr</Text>
+        </View>
         <View style={styles.headerRight}>
           <TouchableOpacity style={styles.themeToggle} onPress={toggleTheme}>
             <Text style={styles.themeToggleText}>{isDark ? '☀️' : '🌙'}</Text>
@@ -183,6 +205,27 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {/* ACTIVE ALERTS WIDGET */}
+        {alerts.length > 0 && (
+          <TouchableOpacity 
+            style={[styles.alertsWidget, alerts.some(a => a.level === 'DANGER') ? styles.borderDanger : styles.borderWarning, isRTL && styles.rtlRow]} 
+            onPress={() => setShowAlertsModal(true)}
+            activeOpacity={0.8}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.alertsWidgetTitle, isRTL && styles.rtlText]}>
+                ⚠️ {t('maintenance_alerts')} ({alerts.length})
+              </Text>
+              <Text style={[styles.alertsWidgetText, isRTL && styles.rtlText]}>
+                {alerts.some(a => a.level === 'DANGER') 
+                  ? "Certains rappels sont urgents (Visite, assurance, vignette ou vidange)." 
+                  : "Certains rappels expirent dans moins de 30 jours."}
+              </Text>
+            </View>
+            <Text style={[styles.alertsWidgetAction, { color: colors.primary }]}>{isRTL ? "عرض ➔" : "Voir ➔"}</Text>
+          </TouchableOpacity>
+        )}
+
         {/* KPI CARDS */}
         <View style={styles.kpiGrid}>
           <View style={[styles.kpiCard, styles.kpiIncome]}>
@@ -233,6 +276,60 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* CHART SECTION */}
+        {chartData.length > 0 && (
+          <View style={styles.chartContainer}>
+            <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>
+              📈 {t('financial_chart')}
+            </Text>
+            
+            <View style={[styles.chartLegend, isRTL && styles.rtlRow]}>
+              <View style={[styles.legendItem, isRTL && styles.rtlRow]}>
+                <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
+                <Text style={styles.legendLabel}>{t('income')}</Text>
+              </View>
+              <View style={[styles.legendItem, isRTL && styles.rtlRow]}>
+                <View style={[styles.legendDot, { backgroundColor: '#f43f5e' }]} />
+                <Text style={styles.legendLabel}>{t('expense')}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.chartBarsContainer, isRTL && styles.rtlRow]}>
+              {chartData.map((item, idx) => {
+                const maxAmount = Math.max(...chartData.map(c => Math.max(c.income, c.expense)), 1000);
+                const incomeHeight = maxAmount > 0 ? (item.income / maxAmount) * 80 : 0; // max 80% height
+                const expenseHeight = maxAmount > 0 ? (item.expense / maxAmount) * 80 : 0;
+
+                const incomeK = item.income >= 1000 ? `${(item.income / 1000).toFixed(1)}k` : `${item.income}`;
+                const expenseK = item.expense >= 1000 ? `${(item.expense / 1000).toFixed(1)}k` : `${item.expense}`;
+
+                return (
+                  <View key={idx} style={styles.chartColumn}>
+                    <View style={styles.barsGroup}>
+                      {/* Barre de Revenus */}
+                      <View style={styles.barWrapper}>
+                        {item.income > 0 && (
+                          <Text style={styles.barTooltip}>{incomeK}</Text>
+                        )}
+                        <View style={[styles.bar, { height: `${incomeHeight}%`, backgroundColor: '#10b981' }]} />
+                      </View>
+                      
+                      {/* Barre de Dépenses */}
+                      <View style={styles.barWrapper}>
+                        {item.expense > 0 && (
+                          <Text style={styles.barTooltip}>{expenseK}</Text>
+                        )}
+                        <View style={[styles.bar, { height: `${expenseHeight}%`, backgroundColor: '#f43f5e' }]} />
+                      </View>
+                    </View>
+                    <Text style={styles.chartMonthLabel} numberOfLines={1}>{item.month}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         {/* RECENT ACTIVITY */}
         <View style={styles.recentActivityContainer}>
@@ -785,5 +882,124 @@ const getStyles = (colors: ThemeColors, isDark: boolean, isRTL: boolean) => Styl
     fontSize: 15,
     marginTop: 24,
     marginBottom: 24,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  alertsWidget: {
+    backgroundColor: colors.surface,
+    padding: 16,
+    borderRadius: 16,
+    marginHorizontal: 20,
+    marginTop: 16,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1.5,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  borderDanger: {
+    borderColor: '#ef4444',
+  },
+  borderWarning: {
+    borderColor: '#f59e0b',
+  },
+  alertsWidgetTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  alertsWidgetText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  alertsWidgetAction: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  chartContainer: {
+    backgroundColor: colors.surface,
+    padding: 16,
+    borderRadius: 20,
+    marginHorizontal: 20,
+    marginVertical: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  chartLegend: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 20,
+    marginTop: 8,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  legendLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  chartBarsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    height: 150,
+    alignItems: 'flex-end',
+    paddingTop: 20,
+  },
+  chartColumn: {
+    flex: 1,
+    alignItems: 'center',
+    height: '100%',
+    justifyContent: 'flex-end',
+  },
+  barsGroup: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: 4,
+    height: 110,
+    width: '100%',
+  },
+  barWrapper: {
+    height: '100%',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    width: '40%',
+  },
+  bar: {
+    width: '100%',
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
+  },
+  barTooltip: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    marginBottom: 2,
+    textAlign: 'center',
+  },
+  chartMonthLabel: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    marginTop: 8,
+    textAlign: 'center',
+    width: '100%',
   },
 });

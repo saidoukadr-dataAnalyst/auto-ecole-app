@@ -53,7 +53,8 @@ type TranslationKeys =
   | 'export_students' | 'list_type' | 'active_students' | 'archived_students' | 'filter_by_status' | 'filter_by_date' | 'select_year' | 'select_month' | 'export_all' | 'export_pdf_button' | 'export_csv_button'
   | 'tva_calculation' | 'tva_annual_report' | 'enrolled_students_count' | 'total_tva_due' | 'select_year_tva' | 'generate_tva_pdf'
   | 'transaction_actions' | 'edit_transaction' | 'delete_transaction' | 'transaction_deleted_toast' | 'transaction_updated_toast'
-  | 'trash' | 'empty_trash' | 'restore' | 'deleted_permanently' | 'trash_empty' | 'moved_to_trash' | 'restored_success' | 'emptied_success' | 'student_restored' | 'student_deleted_forever' | 'transaction_restored' | 'transaction_deleted_forever' | 'confirm_empty_trash';
+  | 'trash' | 'empty_trash' | 'restore' | 'deleted_permanently' | 'trash_empty' | 'moved_to_trash' | 'restored_success' | 'emptied_success' | 'student_restored' | 'student_deleted_forever' | 'transaction_restored' | 'transaction_deleted_forever' | 'confirm_empty_trash'
+  | 'school_name' | 'edit_school_name' | 'school_name_updated' | 'generate_receipt' | 'no_payments_receipt' | 'backup_restore' | 'export_backup' | 'import_backup' | 'backup_error' | 'maintenance_alerts' | 'financial_chart';
 
 type Translations = Record<Lang, Record<TranslationKeys, string>>;
 
@@ -260,7 +261,7 @@ export const translations: Translations = {
     tva_calculation: "Calcul de la TVA",
     tva_annual_report: "Bilan TVA Annuel",
     enrolled_students_count: "Nombre d'élèves inscrits",
-    total_tva_due: "Total TVA Dû (850 DH/él.)",
+    total_tva_due: "Total TVA Dû (450 DH/él.)",
     select_year_tva: "Année concernée",
     generate_tva_pdf: "Générer Rapport TVA (PDF)",
     transaction_actions: "Actions de Transaction",
@@ -280,7 +281,18 @@ export const translations: Translations = {
     student_deleted_forever: "Élève supprimé définitivement.",
     transaction_restored: "Transaction restaurée.",
     transaction_deleted_forever: "Transaction supprimée définitivement.",
-    confirm_empty_trash: "Voulez-vous vraiment vider définitivement la corbeille ? Cette action est irréversible."
+    confirm_empty_trash: "Voulez-vous vraiment vider définitivement la corbeille ? Cette action est irréversible.",
+    school_name: "Nom de l'Auto-École",
+    edit_school_name: "Modifier le nom de l'école",
+    school_name_updated: "Nom de l'école mis à jour.",
+    generate_receipt: "Générer Reçu (PDF)",
+    no_payments_receipt: "Impossible de générer un reçu sans aucun paiement.",
+    backup_restore: "Sauvegarde & Restauration",
+    export_backup: "Créer une Sauvegarde",
+    import_backup: "Restaurer une Sauvegarde",
+    backup_error: "Erreur lors de la sauvegarde/restauration.",
+    maintenance_alerts: "Alertes de Maintenance",
+    financial_chart: "Aperçu Financier (Revenus vs Dépenses)"
   },
   ar: {
     app_name: 'مدرستي',
@@ -484,7 +496,7 @@ export const translations: Translations = {
     tva_calculation: "حساب الضريبة",
     tva_annual_report: "تقرير الضريبة السنوي",
     enrolled_students_count: "عدد التلاميذ المسجلين",
-    total_tva_due: "مجموع الضريبة (850 درهم/تلميذ)",
+    total_tva_due: "مجموع الضريبة (450 درهم/تلميذ)",
     select_year_tva: "السنة المعنية",
     generate_tva_pdf: "تقرير الضريبة (PDF)",
     transaction_actions: "إجراءات المعاملة",
@@ -504,7 +516,18 @@ export const translations: Translations = {
     student_deleted_forever: "تم حذف التلميذ نهائياً.",
     transaction_restored: "تم استعادة المعاملة.",
     transaction_deleted_forever: "تم حذف المعاملة نهائياً.",
-    confirm_empty_trash: "هل تريد حقًا إفراغ سلة المهملات نهائيًا؟ هذا الإجراء لا يمكن التراجع عنه."
+    confirm_empty_trash: "هل تريد حقًا إفراغ سلة المهملات نهائيًا؟ هذا الإجراء لا يمكن التراجع عنه.",
+    school_name: "اسم مؤسسة تعليم السياقة",
+    edit_school_name: "تعديل اسم المؤسسة",
+    school_name_updated: "تم تحديث اسم المؤسسة بنجاح.",
+    generate_receipt: "إنشاء وصل (PDF)",
+    no_payments_receipt: "لا يمكن إنشاء وصل بدون أي دفع.",
+    backup_restore: "النسخ الاحتياطي والاستعادة",
+    export_backup: "إنشاء نسخة احتياطية",
+    import_backup: "استعادة النسخة الاحتياطية",
+    backup_error: "خطأ أثناء النسخ الاحتياطي أو الاستعادة.",
+    maintenance_alerts: "تنبيهات الصيانة",
+    financial_chart: "مخطط مالي (المداخيل مقابل المصاريف)"
   },
 };
 

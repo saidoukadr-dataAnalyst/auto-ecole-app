@@ -172,20 +172,42 @@ export function VehiclesScreen() {
     }
   };
 
-  const isVisitUrgent = (dateStr: string | null) => {
-    if (!dateStr) return false;
+  const getDateStatus = (dateStr: string | null) => {
+    if (!dateStr) return 'green';
     const visit = new Date(dateStr);
     const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    visit.setHours(0, 0, 0, 0);
     const diffDays = (visit.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-    return diffDays <= 7;
+    if (diffDays <= 7) return 'red';
+    if (diffDays <= 30) return 'orange';
+    return 'green';
+  };
+
+  const getOilStatus = (oilRemaining: number) => {
+    if (oilRemaining <= 500) return 'red';
+    if (oilRemaining <= 1500) return 'orange';
+    return 'green';
   };
 
   const renderVehicle = ({ item }: { item: any }) => {
     const oilRemaining = (item.next_oil_change_km || 0) - (item.current_mileage || 0);
-    const oilUrgent = oilRemaining <= 1000;
-    const visitUrgent = isVisitUrgent(item.next_technical_visit);
-    const insuranceUrgent = isVisitUrgent(item.insurance_date);
-    const vignetteUrgent = isVisitUrgent(item.vignette_date);
+    const oilStatus = getOilStatus(oilRemaining);
+    const visitStatus = getDateStatus(item.next_technical_visit);
+    const insuranceStatus = getDateStatus(item.insurance_date);
+    const vignetteStatus = getDateStatus(item.vignette_date);
+
+    const getStatusStyle = (status: 'red' | 'orange' | 'green') => {
+      if (status === 'red') return styles.textDanger;
+      if (status === 'orange') return styles.textWarning;
+      return styles.textSuccess;
+    };
+
+    const renderAlertDot = (status: 'red' | 'orange' | 'green') => {
+      if (status === 'red') return <View style={[styles.alertDotRed, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]} />;
+      if (status === 'orange') return <View style={[styles.alertDotOrange, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]} />;
+      return <View style={[styles.alertDotGreen, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]} />;
+    };
 
     const visitDate = item.next_technical_visit
       ? new Date(item.next_technical_visit).toLocaleDateString()
@@ -220,39 +242,31 @@ export function VehiclesScreen() {
         </View>
 
         <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 8 }]}>
-          <Text style={[styles.cardDetail, oilUrgent && styles.textDanger]}>
+          <Text style={[styles.cardDetail, getStatusStyle(oilStatus)]}>
             🛢️ {t('oil_change')}: {oilRemaining > 0 ? `${oilRemaining.toLocaleString()} km` : t('overdue')}
           </Text>
-          {oilUrgent && (
-            <View style={[styles.alertDot, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]} />
-          )}
+          {renderAlertDot(oilStatus)}
         </View>
 
         <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 8 }]}>
-          <Text style={[styles.cardDetail, visitUrgent && styles.textDanger]}>
+          <Text style={[styles.cardDetail, getStatusStyle(visitStatus)]}>
             🔧 {t('technical_visit')}: {visitDate}
           </Text>
-          {visitUrgent && (
-            <View style={[styles.alertDot, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]} />
-          )}
+          {renderAlertDot(visitStatus)}
         </View>
 
         <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 8 }]}>
-          <Text style={[styles.cardDetail, insuranceUrgent && styles.textDanger]}>
+          <Text style={[styles.cardDetail, getStatusStyle(insuranceStatus)]}>
             🛡️ Assurance: {insDate}
           </Text>
-          {insuranceUrgent && (
-            <View style={[styles.alertDot, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]} />
-          )}
+          {renderAlertDot(insuranceStatus)}
         </View>
 
         <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 8 }]}>
-          <Text style={[styles.cardDetail, vignetteUrgent && styles.textDanger]}>
+          <Text style={[styles.cardDetail, getStatusStyle(vignetteStatus)]}>
             🏷️ Vignette: {vigDate}
           </Text>
-          {vignetteUrgent && (
-            <View style={[styles.alertDot, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]} />
-          )}
+          {renderAlertDot(vignetteStatus)}
         </View>
 
         {item.avg_consumption > 0 && (
@@ -261,7 +275,7 @@ export function VehiclesScreen() {
               ⛽ {t('consumption') || 'Consommation'}: {item.avg_consumption.toFixed(1)} L/100km
             </Text>
             {item.avg_consumption > 10 && (
-              <View style={[styles.alertDot, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]} />
+              <View style={[styles.alertDotRed, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]} />
             )}
           </View>
         )}
@@ -552,11 +566,31 @@ const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
     color: colors.danger,
     fontWeight: '700',
   },
-  alertDot: {
+  textWarning: {
+    color: '#f59e0b', // Orange
+    fontWeight: '700',
+  },
+  textSuccess: {
+    color: '#10b981', // Green
+    fontWeight: '700',
+  },
+  alertDotRed: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.danger,
+  },
+  alertDotOrange: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#f59e0b',
+  },
+  alertDotGreen: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10b981',
   },
   emptyText: {
     fontSize: 16,

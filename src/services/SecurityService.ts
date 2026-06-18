@@ -9,8 +9,24 @@ const APP_MASTER_SECRET_SALT = "AUTOECOLE_SECRET_KEY_2026_SECURE_X9#";
 // Clés de stockage
 const STORE_KEY_ACTIVATED = "APP_ACTIVATION_STATUS";
 const STORE_KEY_USER_PIN = "APP_USER_PIN";
+const STORE_KEY_SCHOOL_NAME = "APP_SCHOOL_NAME";
 
 export class SecurityService {
+  
+  /**
+   * Récupère le nom de l'auto-école (par défaut : "Auto-École")
+   */
+  static async getSchoolName(): Promise<string> {
+    const name = await this.getItemSafe(STORE_KEY_SCHOOL_NAME);
+    return name || "Auto-École";
+  }
+
+  /**
+   * Sauvegarde le nom de l'auto-école
+   */
+  static async saveSchoolName(name: string): Promise<void> {
+    await this.setItemSafe(STORE_KEY_SCHOOL_NAME, name);
+  }
   
   /**
    * Wrapper pour supporter le Web (localStorage) en plus de iOS/Android (SecureStore)
