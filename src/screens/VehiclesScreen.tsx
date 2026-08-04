@@ -412,14 +412,23 @@ export function VehiclesScreen() {
               <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>Photo du Véhicule</Text>
               <View style={{ marginBottom: 16 }}>
                 {imageUri ? (
-                  <View style={{ position: 'relative', borderRadius: 12, overflow: 'hidden' }}>
+                  <View style={{ borderRadius: 12, overflow: 'hidden' }}>
                     <Image source={{ uri: imageUri }} style={{ width: '100%', height: 140, borderRadius: 12 }} resizeMode="cover" />
-                    <TouchableOpacity
-                      style={{ position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.6)', padding: 6, borderRadius: 16 }}
-                      onPress={() => setImageUri(null)}
-                    >
-                      <Ionicons name="close" size={18} color="#fff" />
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+                      <TouchableOpacity
+                        style={{ flex: 1, paddingVertical: 8, backgroundColor: colors.primary + '15', borderRadius: 8, borderWidth: 1, borderColor: colors.primary + '30', alignItems: 'center' }}
+                        onPress={pickImage}
+                      >
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: colors.primary }}>📸 Changer la photo</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={{ flex: 1, paddingVertical: 8, backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2', borderRadius: 8, borderWidth: 1, borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#fecaca', alignItems: 'center' }}
+                        onPress={() => setImageUri(null)}
+                      >
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: colors.danger }}>🗑️ Supprimer la photo</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 ) : (
                   <TouchableOpacity
