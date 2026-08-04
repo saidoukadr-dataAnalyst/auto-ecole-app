@@ -232,11 +232,11 @@ export class DatabaseService {
     await this.db!.withTransactionAsync(async () => {
       const result = await this.db!.runAsync(
         'INSERT INTO Students (name, phone, package_price, license_type) VALUES (?, ?, ?, ?)',
-        name, phone, packagePrice, licenseType || 'B'
+        name || 'Élève', phone || '', packagePrice || 0, licenseType || 'B'
       );
       if (advance && advance > 0) {
         const cat = await this.db!.getFirstAsync<{id: number}>(
-          "SELECT id FROM Categories WHERE name = 'Paiement Forfait' AND type = 'INCOME'"
+          "SELECT id FROM Categories WHERE type = 'INCOME' ORDER BY id ASC LIMIT 1"
         );
         if (cat) {
           await this.db!.runAsync(
@@ -252,7 +252,7 @@ export class DatabaseService {
     if (!this.db) await this.initDB();
     await this.db!.runAsync(
       'UPDATE Students SET name = ?, phone = ?, package_price = ?, license_type = ? WHERE id = ?',
-      name, phone, packagePrice, licenseType || 'B', id
+      name || 'Élève', phone || '', packagePrice || 0, licenseType || 'B', id
     );
   }
 
@@ -303,23 +303,28 @@ export class DatabaseService {
     name: string, 
     registration: string, 
     mileage: number, 
-    nextVisit: string, 
+    nextVisit?: string, 
     oilChangeDate?: string,
     insuranceDate?: string,
     vignetteDate?: string,
     imageUri?: string
   ): Promise<void> {
     if (!this.db) await this.initDB();
+    const cleanVisit = nextVisit && nextVisit.trim() ? nextVisit.trim() : null;
+    const cleanIns = insuranceDate && insuranceDate.trim() ? insuranceDate.trim() : null;
+    const cleanVig = vignetteDate && vignetteDate.trim() ? vignetteDate.trim() : null;
+    const cleanOil = oilChangeDate && oilChangeDate.trim() ? oilChangeDate.trim() : null;
+
     await this.db!.withTransactionAsync(async () => {
       const result = await this.db!.runAsync(
         'INSERT INTO Vehicles (name, registration, current_mileage, next_technical_visit, insurance_date, vignette_date, image_uri) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        name, registration, mileage, nextVisit || null, insuranceDate || null, vignetteDate || null, imageUri || null
+        name || 'Véhicule', registration || '—', mileage || 0, cleanVisit, cleanIns, cleanVig, imageUri || null
       );
-      if (oilChangeDate) {
-        const nextOilMileage = mileage + 10000;
+      if (cleanOil) {
+        const nextOilMileage = (mileage || 0) + 10000;
         await this.db!.runAsync(
           'INSERT INTO OilChanges (vehicle_id, change_date, mileage_at_change, next_mileage) VALUES (?, ?, ?, ?)',
-          result.lastInsertRowId, oilChangeDate, mileage, nextOilMileage
+          result.lastInsertRowId, cleanOil, mileage || 0, nextOilMileage
         );
       }
     });
@@ -330,15 +335,19 @@ export class DatabaseService {
     name: string, 
     registration: string, 
     mileage: number, 
-    nextVisit: string,
+    nextVisit?: string,
     insuranceDate?: string,
     vignetteDate?: string,
     imageUri?: string
   ): Promise<void> {
     if (!this.db) await this.initDB();
+    const cleanVisit = nextVisit && nextVisit.trim() ? nextVisit.trim() : null;
+    const cleanIns = insuranceDate && insuranceDate.trim() ? insuranceDate.trim() : null;
+    const cleanVig = vignetteDate && vignetteDate.trim() ? vignetteDate.trim() : null;
+
     await this.db!.runAsync(
       'UPDATE Vehicles SET name = ?, registration = ?, current_mileage = ?, next_technical_visit = ?, insurance_date = ?, vignette_date = ?, image_uri = ? WHERE id = ?',
-      name, registration, mileage, nextVisit || null, insuranceDate || null, vignetteDate || null, imageUri || null, id
+      name || 'Véhicule', registration || '—', mileage || 0, cleanVisit, cleanIns, cleanVig, imageUri || null, id
     );
   }
 

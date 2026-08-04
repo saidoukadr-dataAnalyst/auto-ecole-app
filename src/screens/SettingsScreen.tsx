@@ -11,7 +11,7 @@ import { showToast } from '../services/ToastService';
 import { useTheme } from '../theme/ThemeContext';
 import { ThemeColors } from '../theme/colors';
 
-type ActionKey = 'pdf' | 'csv' | 'backup' | 'change_pin' | 'lock' | 'tva' | 'trash' | 'school_name' | 'export_backup' | 'import_backup' | 'network_compare' | 'manage_agencies';
+type ActionKey = 'pdf' | 'csv' | 'backup' | 'change_pin' | 'lock' | 'tva' | 'trash' | 'school_name' | 'export_backup' | 'import_backup' | 'network_compare' | 'manage_agencies' | 'google_account';
 
 export function SettingsScreen() {
   const { t, isRTL } = useLanguage();
@@ -52,6 +52,10 @@ export function SettingsScreen() {
   // School name edit state
   const [showSchoolModal, setShowSchoolModal] = useState(false);
   const [schoolNameInput, setSchoolNameInput] = useState('');
+
+  // Google Gmail state
+  const [showGoogleModal, setShowGoogleModal] = useState(false);
+  const [googleEmailInput, setGoogleEmailInput] = useState('');
 
   const loadTvaData = async (year: string) => {
     setLoadingTva(true);
@@ -159,6 +163,11 @@ export function SettingsScreen() {
         case 'manage_agencies':
           setShowAgencyModal(true);
           loadAgenciesData();
+          break;
+        case 'google_account':
+          const email = await SecurityService.getGoogleEmail();
+          setGoogleEmailInput(email);
+          setShowGoogleModal(true);
           break;
       }
     } catch {
@@ -351,6 +360,13 @@ export function SettingsScreen() {
           label: 'Gestion des Agences',
           description: 'Ajouter ou configurer vos auto-écoles et codes de sync',
           color: '#3b82f6',
+        },
+        {
+          key: 'google_account',
+          icon: '☁️',
+          label: 'Compte Google Gmail (Cloud Sync)',
+          description: 'Configurer le Gmail commun pour la synchronisation automatique Drive',
+          color: '#ea4335',
         },
       ],
     },
@@ -889,6 +905,64 @@ export function SettingsScreen() {
                   )}
                 </View>
               ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* GOOGLE GMAIL ACCOUNT MODAL */}
+      <Modal
+        visible={showGoogleModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowGoogleModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={[styles.modalHeader, isRTL && styles.rowRTL]}>
+              <Text style={[styles.modalTitle, isRTL && styles.textRTL, { marginBottom: 0 }]}>
+                ☁️ Compte Google Gmail
+              </Text>
+              <TouchableOpacity onPress={() => setShowGoogleModal(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 16 }}>
+                Saisissez l'adresse Gmail entreprise (ex: autoecole.direction@gmail.com). Toutes vos agences s'y connecteront pour synchroniser automatiquement leurs fichiers chiffrés.
+              </Text>
+
+              <Text style={styles.fieldLabel}>Adresse Gmail Entreprise</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="autoecole.direction@gmail.com"
+                value={googleEmailInput}
+                onChangeText={setGoogleEmailInput}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                placeholderTextColor={colors.textSecondary}
+              />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.cancelBtn]}
+                  onPress={() => setShowGoogleModal(false)}
+                >
+                  <Text style={styles.cancelBtnText}>{t('cancel')}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.saveBtn]}
+                  onPress={async () => {
+                    await SecurityService.saveGoogleEmail(googleEmailInput.trim());
+                    showToast('Compte Gmail sauvegardé avec succès !');
+                    setShowGoogleModal(false);
+                  }}
+                >
+                  <Text style={styles.saveBtnText}>{t('save') || 'Enregistrer'}</Text>
+                </TouchableOpacity>
+              </View>
             </ScrollView>
           </View>
         </View>

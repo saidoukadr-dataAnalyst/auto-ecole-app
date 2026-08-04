@@ -204,6 +204,8 @@ export function StaffScreen() {
     }
   };
 
+  const [showExportModal, setShowExportModal] = useState(false);
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -211,16 +213,10 @@ export function StaffScreen() {
         <Text style={styles.headerTitle}>{t('staff')}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <TouchableOpacity 
-            style={{ padding: 8, backgroundColor: colors.surface, borderRadius: 8, borderWidth: 1, borderColor: colors.border }} 
-            onPress={handleExportStaffPDF}
+            style={{ padding: 10, backgroundColor: colors.primary + '15', borderRadius: 10, borderWidth: 1, borderColor: colors.primary + '30' }} 
+            onPress={() => setShowExportModal(true)}
           >
-            <Ionicons name="document-text-outline" size={18} color="#ef4444" />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={{ padding: 8, backgroundColor: colors.surface, borderRadius: 8, borderWidth: 1, borderColor: colors.border }} 
-            onPress={handleExportStaffCSV}
-          >
-            <Ionicons name="stats-chart-outline" size={18} color="#16a34a" />
+            <Ionicons name="download-outline" size={20} color={colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
             <Text style={styles.addBtnText}>{t('add_new')}</Text>
@@ -317,6 +313,59 @@ export function StaffScreen() {
                 ) : (
                   <Text style={styles.saveBtnText}>{t('save')}</Text>
                 )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* EXPORT STAFF MODAL */}
+      <Modal
+        visible={showExportModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowExportModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={[styles.modalHeader, isRTL && styles.rowReverse]}>
+              <Text style={styles.modalTitle}>📄 Exportation du Personnel</Text>
+              <TouchableOpacity onPress={() => setShowExportModal(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 20 }}>
+              Choisissez le format d'exportation de la liste des employés et moniteurs ({filtered.length} membres) :
+            </Text>
+
+            <View style={{ gap: 12 }}>
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', padding: 14, backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2', borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#fecaca' }}
+                onPress={() => {
+                  setShowExportModal(false);
+                  handleExportStaffPDF();
+                }}
+              >
+                <Ionicons name="document-text-outline" size={24} color="#ef4444" style={{ marginRight: 12 }} />
+                <View>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>📄 Exporter au Format PDF</Text>
+                  <Text style={{ fontSize: 12, color: colors.textSecondary }}>Rapport imprimable avec totaux des salaires</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', padding: 14, backgroundColor: isDark ? 'rgba(22, 163, 74, 0.15)' : '#f0fdf4', borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(22, 163, 74, 0.3)' : '#bbf7d0' }}
+                onPress={() => {
+                  setShowExportModal(false);
+                  handleExportStaffCSV();
+                }}
+              >
+                <Ionicons name="stats-chart-outline" size={24} color="#16a34a" style={{ marginRight: 12 }} />
+                <View>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>📊 Exporter au Format CSV (Excel)</Text>
+                  <Text style={{ fontSize: 12, color: colors.textSecondary }}>Fichier comptable exploitable dans Excel</Text>
+                </View>
               </TouchableOpacity>
             </View>
           </View>
@@ -489,11 +538,17 @@ const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   modalTitle: {
     fontSize: 22,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 20,
+    marginBottom: 0,
   },
   fieldLabel: {
     fontSize: 14,

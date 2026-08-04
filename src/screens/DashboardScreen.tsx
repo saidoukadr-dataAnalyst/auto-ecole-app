@@ -385,7 +385,7 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
         </View>
 
         {/* Padding for FAB */}
-        <View style={{ height: 80 }} />
+        <View style={{ height: 140 }} />
       </ScrollView>
 
       {/* FAB */}
@@ -800,7 +800,7 @@ const getStyles = (colors: ThemeColors, isDark: boolean, isRTL: boolean) => Styl
   // FAB
   fab: {
     position: 'absolute',
-    bottom: 24,
+    bottom: 90,
     right: 24,
     width: 60,
     height: 60,

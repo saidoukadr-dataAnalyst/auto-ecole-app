@@ -10,6 +10,7 @@ const APP_MASTER_SECRET_SALT = "AUTOECOLE_SECRET_KEY_2026_SECURE_X9#";
 const STORE_KEY_ACTIVATED = "APP_ACTIVATION_STATUS";
 const STORE_KEY_USER_PIN = "APP_USER_PIN";
 const STORE_KEY_SCHOOL_NAME = "APP_SCHOOL_NAME";
+const STORE_KEY_GOOGLE_EMAIL = "APP_GOOGLE_EMAIL";
 
 export class SecurityService {
   
@@ -27,6 +28,21 @@ export class SecurityService {
   static async saveSchoolName(name: string): Promise<void> {
     await this.setItemSafe(STORE_KEY_SCHOOL_NAME, name);
   }
+
+  /**
+   * Récupère l'adresse Google Gmail enregistrée
+   */
+  static async getGoogleEmail(): Promise<string> {
+    const email = await this.getItemSafe(STORE_KEY_GOOGLE_EMAIL);
+    return email || "";
+  }
+
+  /**
+   * Sauvegarde l'adresse Google Gmail
+   */
+  static async saveGoogleEmail(email: string): Promise<void> {
+    await this.setItemSafe(STORE_KEY_GOOGLE_EMAIL, email);
+  }
   
   /**
    * Wrapper pour supporter le Web (localStorage) en plus de iOS/Android (SecureStore)
@@ -37,7 +53,13 @@ export class SecurityService {
         localStorage.setItem(key, value);
       } catch (e) {}
     } else {
-      await SecureStore.setItemAsync(key, value);
+      try {
+        await SecureStore.setItemAsync(key, value);
+      } catch (e) {
+        try {
+          if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
+        } catch (err) {}
+      }
     }
   }
 
@@ -49,7 +71,14 @@ export class SecurityService {
         return null;
       }
     } else {
-      return await SecureStore.getItemAsync(key);
+      try {
+        const val = await SecureStore.getItemAsync(key);
+        if (val !== null) return val;
+      } catch (e) {}
+      try {
+        if (typeof localStorage !== 'undefined') return localStorage.getItem(key);
+      } catch (err) {}
+      return null;
     }
   }
 
@@ -59,11 +88,13 @@ export class SecurityService {
    */
   static async getDeviceId(): Promise<string> {
     let id: string | null | undefined;
-    if (Platform.OS === 'android') {
-      id = Application.getAndroidId();
-    } else if (Platform.OS === 'ios') {
-      id = await Application.getIosIdForVendorAsync();
-    }
+    try {
+      if (Platform.OS === 'android') {
+        id = (Application as any).androidId || (Application as any).getAndroidId?.();
+      } else if (Platform.OS === 'ios') {
+        id = await Application.getIosIdForVendorAsync();
+      }
+    } catch (e) {}
     
     if (!id || id.includes('UNKNOWN')) {
       id = await this.getItemSafe('APP_GENERATED_DEVICE_ID');
