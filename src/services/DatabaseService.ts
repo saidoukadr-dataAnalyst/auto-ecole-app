@@ -595,7 +595,12 @@ export class DatabaseService {
 
   static async getCategories(type: 'INCOME' | 'EXPENSE'): Promise<any[]> {
     if (!this.db) await this.initDB();
-    return await this.db!.getAllAsync('SELECT * FROM Categories WHERE type = ?', type);
+    let cats = await this.db!.getAllAsync<any>('SELECT * FROM Categories WHERE type = ?', type);
+    if (!cats || cats.length === 0) {
+      await this.seedDefaultCategories();
+      cats = await this.db!.getAllAsync<any>('SELECT * FROM Categories WHERE type = ?', type);
+    }
+    return cats;
   }
 
   // =========================================================================

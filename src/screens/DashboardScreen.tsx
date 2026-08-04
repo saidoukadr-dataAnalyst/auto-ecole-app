@@ -387,30 +387,57 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
               <Text style={[styles.emptyActivityText, isRTL && styles.rtlText]}>{t('no_activity') || 'Aucune transaction aujourd\'hui'}</Text>
             ) : (
               recentActivities.map((act) => {
-                let mainTitle = act.category_name || t('transactions');
-                let subTitle = act.description || '—';
+                let icon = act.type === 'INCOME' ? '🟢' : '🔴';
+                let entityBadge = act.category_name || t('transactions');
+                let mainTitle = act.description || 'Transaction';
 
                 if (act.student_name) {
-                  mainTitle = `🎓 ${act.student_name} (${act.license_type || 'B'})`;
-                  subTitle = `${act.category_name || 'Forfait'}${act.description ? ' • ' + act.description : ''}`;
+                  icon = '🎓';
+                  entityBadge = `Permis ${act.license_type || 'B'}`;
+                  mainTitle = act.student_name;
                 } else if (act.vehicle_name) {
-                  mainTitle = `🚘 ${act.vehicle_name} [${act.vehicle_reg || ''}]`;
-                  subTitle = `${act.category_name || 'Dépense'}${act.description ? ' • ' + act.description : ''}`;
+                  icon = '🚘';
+                  entityBadge = act.vehicle_reg ? `${act.vehicle_name} [${act.vehicle_reg}]` : act.vehicle_name;
+                  mainTitle = act.category_name || 'Dépense Véhicule';
                 } else if (act.staff_name) {
-                  mainTitle = `👤 ${act.staff_name} (${act.staff_role || ''})`;
-                  subTitle = `${act.category_name || 'Salaire'}${act.description ? ' • ' + act.description : ''}`;
+                  icon = '👤';
+                  entityBadge = act.staff_role || 'Moniteur';
+                  mainTitle = act.staff_name;
                 }
 
                 return (
                   <View key={act.id} style={[styles.activityItem, isRTL && styles.rtlRow]}>
                     <View style={[styles.activityIconWrapper, act.type === 'INCOME' ? styles.bgGreenLight : styles.bgRedLight]}>
-                      <Text style={styles.activityIcon}>{act.type === 'INCOME' ? '↑' : '↓'}</Text>
+                      <Text style={{ fontSize: 18 }}>{icon}</Text>
                     </View>
+                    
                     <View style={[styles.activityDetails, isRTL && styles.rtlDetails]}>
-                      <Text style={[styles.activityTitle, isRTL && styles.rtlText]} numberOfLines={1}>{mainTitle}</Text>
-                      <Text style={[styles.activitySubtitle, isRTL && styles.rtlText]} numberOfLines={1}>{subTitle}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 2 }}>
+                        <Text style={[styles.activityTitle, isRTL && styles.rtlText]} numberOfLines={1}>
+                          {mainTitle}
+                        </Text>
+                        <View style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#f1f5f9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, borderWidth: 0.5, borderColor: colors.border }}>
+                          <Text style={{ fontSize: 10, fontWeight: '700', color: colors.textSecondary }}>{entityBadge}</Text>
+                        </View>
+                      </View>
+
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        {act.fuel_liters ? (
+                          <Text style={{ fontSize: 11, fontWeight: '600', color: '#f59e0b' }}>⛽ {act.fuel_liters}L</Text>
+                        ) : null}
+                        {act.mileage_at_transaction ? (
+                          <Text style={{ fontSize: 11, fontWeight: '600', color: colors.textSecondary }}>🛣️ {act.mileage_at_transaction} km</Text>
+                        ) : null}
+                        {act.description && act.student_name ? (
+                          <Text style={{ fontSize: 11, color: colors.textSecondary }} numberOfLines={1}>• {act.description}</Text>
+                        ) : null}
+                        {!act.student_name && !act.vehicle_name && act.description ? (
+                          <Text style={{ fontSize: 11, color: colors.textSecondary }} numberOfLines={1}>{act.description}</Text>
+                        ) : null}
+                      </View>
                     </View>
-                    <Text style={[styles.activityAmount, act.type === 'INCOME' ? styles.textSuccess : styles.textDanger]}>
+
+                    <Text style={[styles.activityAmount, act.type === 'INCOME' ? styles.textSuccess : styles.textDanger, { fontSize: 15, fontWeight: '700' }]}>
                       {act.type === 'INCOME' ? '+' : '-'}{act.amount} DH
                     </Text>
                   </View>

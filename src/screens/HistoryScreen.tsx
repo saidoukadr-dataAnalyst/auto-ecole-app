@@ -21,6 +21,12 @@ interface Transaction {
   staff_id: number | null;
   fuel_liters: number | null;
   mileage_at_transaction: number | null;
+  student_name?: string;
+  license_type?: string;
+  vehicle_name?: string;
+  vehicle_reg?: string;
+  staff_name?: string;
+  staff_role?: string;
 }
 
 interface MonthSection {
@@ -41,8 +47,10 @@ export function HistoryScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Collapsible months state
+  // Collapsible years & months state
+  const [collapsedYears, setCollapsedYears] = useState<Record<string, boolean>>({});
   const [collapsedMonths, setCollapsedMonths] = useState<Record<string, boolean>>({});
+  const [entityFilter, setEntityFilter] = useState<'ALL' | 'STUDENT' | 'VEHICLE' | 'STAFF' | 'GENERAL'>('ALL');
 
   // Metadata for editing transactions
   const [categories, setCategories] = useState<any[]>([]);
@@ -128,32 +136,48 @@ export function HistoryScreen() {
         const matchCat = t.category_name?.toLowerCase().includes(q);
         const matchDesc = t.description?.toLowerCase().includes(q);
         const matchAmount = t.amount.toString().includes(q);
-        if (!matchCat && !matchDesc && !matchAmount) return false;
+        const matchStudent = t.student_name?.toLowerCase().includes(q);
+        const matchVehicle = t.vehicle_name?.toLowerCase().includes(q);
+        const matchStaff = t.staff_name?.toLowerCase().includes(q);
+        if (!matchCat && !matchDesc && !matchAmount && !matchStudent && !matchVehicle && !matchStaff) return false;
       }
       
-      // 2. Chip Filter
+      // 2. Chip / Entity Filter
+      if (entityFilter === 'STUDENT') return !!t.student_id || t.category_name === 'Paiement Forfait';
+      if (entityFilter === 'VEHICLE') return !!t.vehicle_id || ['Carburant', 'Vidange', 'Entretien & Réparation', 'Assurance'].includes(t.category_name);
+      if (entityFilter === 'STAFF') return !!t.staff_id || t.category_name === 'Salaires';
+      if (entityFilter === 'GENERAL') return !t.student_id && !t.vehicle_id && !t.staff_id;
+
       if (activeFilter === 'INCOME') return t.type === 'INCOME';
       if (activeFilter === 'EXPENSE') return t.type === 'EXPENSE';
       if (activeFilter !== 'ALL') return t.category_name === activeFilter;
       
       return true;
     });
-  }, [allTransactions, searchQuery, activeFilter]);
+  }, [allTransactions, searchQuery, activeFilter, entityFilter]);
 
-  const sections = useMemo(() => {
-    const groups: { [key: string]: MonthSection } = {};
-    
+  // Hierarchical Grouping: Year -> Month -> Transactions
+  const yearGroups = useMemo(() => {
+    const yearsMap: { [year: string]: { year: string; income: number; expense: number; months: { [monthKey: string]: { monthTitle: string; income: number; expense: number; data: Transaction[] } } } } = {};
+
     filteredData.forEach((t) => {
       const dateObj = new Date(t.date);
-      const monthKey = dateObj.toLocaleDateString(isRTL ? 'ar' : 'fr-FR', {
-        month: 'long',
-        year: 'numeric'
-      });
-      const formattedTitle = monthKey.charAt(0).toUpperCase() + monthKey.slice(1);
+      const year = dateObj.getFullYear().toString();
+      const monthName = dateObj.toLocaleDateString(isRTL ? 'ar' : 'fr-FR', { month: 'long' });
+      const monthTitle = monthName.charAt(0).toUpperCase() + monthName.slice(1) + ' ' + year;
 
-      if (!groups[monthKey]) {
-        groups[monthKey] = {
-          title: formattedTitle,
+      if (!yearsMap[year]) {
+        yearsMap[year] = {
+          year,
+          income: 0,
+          expense: 0,
+          months: {}
+        };
+      }
+
+      if (!yearsMap[year].months[monthTitle]) {
+        yearsMap[year].months[monthTitle] = {
+          monthTitle,
           income: 0,
           expense: 0,
           data: []
@@ -161,19 +185,22 @@ export function HistoryScreen() {
       }
 
       if (t.type === 'INCOME') {
-        groups[monthKey].income += t.amount;
+        yearsMap[year].income += t.amount;
+        yearsMap[year].months[monthTitle].income += t.amount;
       } else {
-        groups[monthKey].expense += t.amount;
+        yearsMap[year].expense += t.amount;
+        yearsMap[year].months[monthTitle].expense += t.amount;
       }
 
-      // Add to data if not collapsed
-      if (!collapsedMonths[formattedTitle]) {
-        groups[monthKey].data.push(t);
-      }
+      yearsMap[year].months[monthTitle].data.push(t);
     });
 
-    return Object.values(groups);
-  }, [filteredData, isRTL, collapsedMonths]);
+    const sortedYears = Object.values(yearsMap).sort((a, b) => Number(b.year) - Number(a.year));
+    return sortedYears.map(y => ({
+      ...y,
+      monthsList: Object.values(y.months)
+    }));
+  }, [filteredData, isRTL]);
 
   const formatDate = (dateStr: string) => {
     try {
@@ -321,57 +348,95 @@ export function HistoryScreen() {
 
   const renderTransaction = ({ item }: { item: any }) => {
     const isIncome = item.type === 'INCOME';
-    const icon = isIncome ? '⬆️' : '⬇️';
     const amountColor = isIncome ? colors.success : colors.danger;
     const prefix = isIncome ? '+' : '-';
-    
-    const iconBgColor = isIncome ? (isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7') : (isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2');
+    const categoryTitle = getTranslatedCategory(item.category_name);
 
-    let mainTitle = getTranslatedCategory(item.category_name);
-    let subTitle = item.description || '';
-
-    if (item.student_name) {
-      mainTitle = `🎓 ${item.student_name} (Permis ${item.license_type || 'B'})`;
-      subTitle = `${getTranslatedCategory(item.category_name)}${item.description ? ' • ' + item.description : ''}`;
-    } else if (item.vehicle_name) {
-      mainTitle = `🚘 ${item.vehicle_name} [${item.vehicle_reg || ''}]`;
-      subTitle = `${getTranslatedCategory(item.category_name)}${item.description ? ' • ' + item.description : ''}`;
-    } else if (item.staff_name) {
-      mainTitle = `👤 ${item.staff_name} (${item.staff_role || ''})`;
-      subTitle = `${getTranslatedCategory(item.category_name)}${item.description ? ' • ' + item.description : ''}`;
-    }
+    // Dynamic Category Icon
+    let categoryIcon = isIncome ? '🟢' : '💸';
+    if (item.category_name === 'Carburant') categoryIcon = '⛽';
+    else if (item.category_name === 'Vidange') categoryIcon = '🛢️';
+    else if (item.category_name === 'Entretien & Réparation') categoryIcon = '🔧';
+    else if (item.category_name === 'Assurance') categoryIcon = '🛡️';
+    else if (item.category_name === 'Salaires') categoryIcon = '👤';
+    else if (item.category_name === 'Loyer Local') categoryIcon = '🏢';
+    else if (item.category_name === 'Paiement Forfait') categoryIcon = '🎓';
 
     return (
       <TouchableOpacity 
-        style={[styles.card, isRTL && styles.cardRTL]}
+        style={[styles.card, isRTL && styles.cardRTL, { padding: 14, marginBottom: 10 }]}
         onLongPress={() => handleLongPress(item)}
         delayLongPress={500}
         activeOpacity={0.7}
       >
-        <View style={[styles.iconContainer, { backgroundColor: iconBgColor }]}>
-          <Text style={styles.icon}>{icon}</Text>
-        </View>
-
-        <View style={[styles.cardContent, isRTL && styles.cardContentRTL]}>
-          <View style={[styles.cardHeader, isRTL && styles.rowRTL]}>
-            <Text style={[styles.categoryName, isRTL && styles.textRTL]} numberOfLines={1}>
-              {mainTitle}
-            </Text>
-            <Text style={[styles.amount, { color: amountColor }]}>
-              {prefix}{Math.abs(item.amount).toFixed(2)} DH
+        {/* ROW 1: CATEGORY ICON + NAME & AMOUNT */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+            <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: isIncome ? (isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7') : (isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2'), justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ fontSize: 16 }}>{categoryIcon}</Text>
+            </View>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text, flex: 1 }} numberOfLines={1}>
+              {categoryTitle}
             </Text>
           </View>
 
-          {subTitle ? (
-            <Text style={[styles.description, isRTL && styles.textRTL]} numberOfLines={2}>
-              {subTitle}
-            </Text>
-          ) : null}
-
-          <Text style={[styles.date, isRTL && styles.textRTL]}>
-            {formatDate(item.date)}
+          <Text style={{ fontSize: 16, fontWeight: '800', color: amountColor }}>
+            {prefix}{Math.abs(item.amount).toFixed(2)} DH
           </Text>
         </View>
+
+        {/* ROW 2: ENTITY CHIP (VEHICLE / STUDENT / STAFF) */}
+        {item.vehicle_name && (
+          <View style={{ backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, marginBottom: 6, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: isDark ? 'rgba(59, 130, 246, 0.3)' : '#bfdbfe' }}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: isDark ? '#60a5fa' : '#1d4ed8' }}>
+              🚘 Véhicule : {item.vehicle_name} {item.vehicle_reg ? `[${item.vehicle_reg}]` : ''}
+            </Text>
+          </View>
+        )}
+
+        {item.student_name && (
+          <View style={{ backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, marginBottom: 6, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : '#bbf7d0' }}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: isDark ? '#34d399' : '#15803d' }}>
+              🎓 Élève : {item.student_name} (Permis {item.license_type || 'B'})
+            </Text>
+          </View>
+        )}
+
+        {item.staff_name && (
+          <View style={{ backgroundColor: isDark ? 'rgba(139, 92, 246, 0.15)' : '#f5f3ff', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, marginBottom: 6, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: isDark ? 'rgba(139, 92, 246, 0.3)' : '#ddd6fe' }}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: isDark ? '#a78bfa' : '#6d28d9' }}>
+              👤 Personnel : {item.staff_name} ({item.staff_role || 'Moniteur'})
+            </Text>
+          </View>
+        )}
+
+        {/* ROW 3: METRICS (FUEL LITERS & MILEAGE) */}
+        {(item.fuel_liters || item.mileage_at_transaction) ? (
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 6, alignItems: 'center' }}>
+            {item.fuel_liters ? (
+              <View style={{ backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 0.5, borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#fde68a' }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#d97706' }}>⛽ {item.fuel_liters} Litres</Text>
+              </View>
+            ) : null}
+            {item.mileage_at_transaction ? (
+              <View style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#f1f5f9', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 0.5, borderColor: colors.border }}>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: colors.textSecondary }}>🛣️ {item.mileage_at_transaction} km</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
+        {/* ROW 4: DESCRIPTION / NOTES */}
+        {item.description ? (
+          <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 4, fontStyle: 'italic' }} numberOfLines={2}>
+            📝 {item.description}
+          </Text>
+        ) : null}
+
+        {/* ROW 5: DATE */}
+        <Text style={{ fontSize: 11, color: colors.textSecondary, opacity: 0.8, textAlign: isRTL ? 'left' : 'right' }}>
+          📅 {formatDate(item.date)}
+        </Text>
       </TouchableOpacity>
     );
   };
@@ -454,63 +519,51 @@ export function HistoryScreen() {
         </Text>
       </View>
 
-      <View style={styles.filterContainer}>
-        <TextInput
-          style={[styles.searchInput, isRTL && styles.textRTL]}
-          placeholder={`🔍 ${t('search')}... (ex: Carburant, Vidange, Montant)`}
-          placeholderTextColor={colors.textSecondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
-          style={styles.chipScroll} 
-          contentContainerStyle={[styles.chipContent, isRTL && styles.rowRTL]}
-        >
-          <TouchableOpacity 
-            style={[styles.chip, activeFilter === 'ALL' && styles.activeChip]} 
-            onPress={() => setActiveFilter('ALL')}
+      {/* ENTITY FILTER CHIPS BAR */}
+      <View style={{ paddingHorizontal: 16, marginBottom: 10 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+          <TouchableOpacity
+            style={[styles.chip, entityFilter === 'ALL' && styles.activeChip]}
+            onPress={() => setEntityFilter('ALL')}
           >
-            <Text style={[styles.chipText, activeFilter === 'ALL' && styles.activeChipText]}>Tous</Text>
+            <Text style={[styles.chipText, entityFilter === 'ALL' && styles.activeChipText]}>🌐 Tous</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.chip, activeFilter === 'INCOME' && styles.activeChip]} 
-            onPress={() => setActiveFilter('INCOME')}
+
+          <TouchableOpacity
+            style={[styles.chip, entityFilter === 'STUDENT' && styles.activeChip]}
+            onPress={() => setEntityFilter('STUDENT')}
           >
-            <Text style={[styles.chipText, activeFilter === 'INCOME' && styles.activeChipText]}>Entrées</Text>
+            <Text style={[styles.chipText, entityFilter === 'STUDENT' && styles.activeChipText]}>🎓 Élèves</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.chip, activeFilter === 'EXPENSE' && styles.activeChip]} 
-            onPress={() => setActiveFilter('EXPENSE')}
+
+          <TouchableOpacity
+            style={[styles.chip, entityFilter === 'VEHICLE' && styles.activeChip]}
+            onPress={() => setEntityFilter('VEHICLE')}
           >
-            <Text style={[styles.chipText, activeFilter === 'EXPENSE' && styles.activeChipText]}>Sorties</Text>
+            <Text style={[styles.chipText, entityFilter === 'VEHICLE' && styles.activeChipText]}>🚘 Véhicules</Text>
           </TouchableOpacity>
-          
-          {availableCategories.map(cat => (
-            <TouchableOpacity 
-              key={cat}
-              style={[styles.chip, activeFilter === cat && styles.activeChip]} 
-              onPress={() => setActiveFilter(cat)}
-            >
-              <Text style={[styles.chipText, activeFilter === cat && styles.activeChipText]}>{getTranslatedCategory(cat)}</Text>
-            </TouchableOpacity>
-          ))}
+
+          <TouchableOpacity
+            style={[styles.chip, entityFilter === 'STAFF' && styles.activeChip]}
+            onPress={() => setEntityFilter('STAFF')}
+          >
+            <Text style={[styles.chipText, entityFilter === 'STAFF' && styles.activeChipText]}>👤 Personnel</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.chip, entityFilter === 'GENERAL' && styles.activeChip]}
+            onPress={() => setEntityFilter('GENERAL')}
+          >
+            <Text style={[styles.chipText, entityFilter === 'GENERAL' && styles.activeChipText]}>🏢 Local & Autre</Text>
+          </TouchableOpacity>
         </ScrollView>
       </View>
 
-      <SectionList
-        sections={sections}
-        renderItem={renderTransaction}
-        renderSectionHeader={renderSectionHeader}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={[
-          styles.listContent,
-          sections.length === 0 && styles.emptyList,
-        ]}
-        ListEmptyComponent={renderEmpty}
+      {/* HIERARCHICAL ACCORDION: YEAR -> MONTH -> TRANSACTIONS */}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
-        stickySectionHeadersEnabled={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -519,7 +572,82 @@ export function HistoryScreen() {
             tintColor={colors.primary}
           />
         }
-      />
+      >
+        {yearGroups.length === 0 ? (
+          renderEmpty()
+        ) : (
+          yearGroups.map((yearGroup) => {
+            const isYearCollapsed = !!collapsedYears[yearGroup.year];
+            const yearNet = yearGroup.income - yearGroup.expense;
+
+            return (
+              <View key={yearGroup.year} style={{ marginBottom: 16, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
+                {/* YEAR ACCORDION HEADER */}
+                <TouchableOpacity
+                  style={{ padding: 14, backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#e2e8f0', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                  onPress={() => setCollapsedYears(prev => ({ ...prev, [yearGroup.year]: !prev[yearGroup.year] }))}
+                  activeOpacity={0.8}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Ionicons name={isYearCollapsed ? "chevron-forward" : "chevron-down"} size={20} color={colors.text} />
+                    <Text style={{ fontSize: 17, fontWeight: '800', color: colors.text }}>📅 Année {yearGroup.year}</Text>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: colors.success }}>+{yearGroup.income.toFixed(0)}</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: colors.danger }}>-{yearGroup.expense.toFixed(0)}</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: yearNet >= 0 ? colors.primary : colors.danger }}>
+                      {yearNet >= 0 ? '+' : ''}{yearNet.toFixed(0)} DH
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* MONTHS ACCORDIONS INSIDE YEAR */}
+                {!isYearCollapsed && (
+                  <View style={{ padding: 10 }}>
+                    {yearGroup.monthsList.map((monthGroup) => {
+                      const isMonthCollapsed = !!collapsedMonths[monthGroup.monthTitle];
+                      const monthNet = monthGroup.income - monthGroup.expense;
+
+                      return (
+                        <View key={monthGroup.monthTitle} style={{ marginBottom: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
+                          {/* MONTH ACCORDION HEADER */}
+                          <TouchableOpacity
+                            style={{ padding: 12, backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                            onPress={() => setCollapsedMonths(prev => ({ ...prev, [monthGroup.monthTitle]: !prev[monthGroup.monthTitle] }))}
+                            activeOpacity={0.8}
+                          >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Ionicons name={isMonthCollapsed ? "chevron-forward" : "chevron-down"} size={18} color={colors.primary} />
+                              <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>📆 {monthGroup.monthTitle}</Text>
+                              <Text style={{ fontSize: 11, color: colors.textSecondary }}>({monthGroup.data.length})</Text>
+                            </View>
+
+                            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                              <Text style={{ fontSize: 11, fontWeight: '600', color: colors.success }}>+{monthGroup.income.toFixed(0)}</Text>
+                              <Text style={{ fontSize: 11, fontWeight: '600', color: colors.danger }}>-{monthGroup.expense.toFixed(0)}</Text>
+                              <Text style={{ fontSize: 12, fontWeight: '700', color: monthNet >= 0 ? colors.primary : colors.danger }}>
+                                Net: {monthNet >= 0 ? '+' : ''}{monthNet.toFixed(0)} DH
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+
+                          {/* TRANSACTIONS LIST INSIDE MONTH */}
+                          {!isMonthCollapsed && (
+                            <View style={{ padding: 8 }}>
+                              {monthGroup.data.map((item) => renderTransaction({ item }))}
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+            );
+          })
+        )}
+      </ScrollView>
 
       {/* ACTIONS MODAL (LONG PRESS) */}
       <Modal

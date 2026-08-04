@@ -52,14 +52,41 @@ export function InputExpenseScreen({ onSaveSuccess, onCancel }: Props) {
   useEffect(() => {
     const load = async () => {
       try {
-        const cats = await DatabaseService.getCategories('EXPENSE');
+        let cats = await DatabaseService.getCategories('EXPENSE');
+        if (!cats || cats.length === 0) {
+          cats = [
+            { id: 1, name: 'Carburant', is_vehicle_related: 1, is_staff_related: 0 },
+            { id: 2, name: 'Entretien & Réparation', is_vehicle_related: 1, is_staff_related: 0 },
+            { id: 3, name: 'Vidange', is_vehicle_related: 1, is_staff_related: 0 },
+            { id: 4, name: 'Assurance', is_vehicle_related: 1, is_staff_related: 0 },
+            { id: 5, name: 'Loyer Local', is_vehicle_related: 0, is_staff_related: 0 },
+            { id: 6, name: 'Salaires', is_vehicle_related: 0, is_staff_related: 1 },
+            { id: 7, name: 'Électricité & Internet', is_vehicle_related: 0, is_staff_related: 0 },
+            { id: 8, name: 'Autre', is_vehicle_related: 0, is_staff_related: 0 },
+          ];
+        }
         setCategories(cats);
+        if (cats.length > 0 && selectedCategoryId === null) {
+          setSelectedCategoryId(cats[0].id);
+        }
         const vehs = await DatabaseService.getVehicles();
         setVehicles(vehs);
         const stf = await DatabaseService.getStaff();
         setStaffList(stf);
       } catch {
-        // silent
+        // Fallback
+        const fallbackCats = [
+          { id: 1, name: 'Carburant', is_vehicle_related: 1, is_staff_related: 0 },
+          { id: 2, name: 'Entretien & Réparation', is_vehicle_related: 1, is_staff_related: 0 },
+          { id: 3, name: 'Vidange', is_vehicle_related: 1, is_staff_related: 0 },
+          { id: 4, name: 'Assurance', is_vehicle_related: 1, is_staff_related: 0 },
+          { id: 5, name: 'Loyer Local', is_vehicle_related: 0, is_staff_related: 0 },
+          { id: 6, name: 'Salaires', is_vehicle_related: 0, is_staff_related: 1 },
+          { id: 7, name: 'Électricité & Internet', is_vehicle_related: 0, is_staff_related: 0 },
+          { id: 8, name: 'Autre', is_vehicle_related: 0, is_staff_related: 0 },
+        ];
+        setCategories(fallbackCats);
+        setSelectedCategoryId(1);
       }
     };
     load();
