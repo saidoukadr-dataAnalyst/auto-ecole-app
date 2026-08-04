@@ -155,18 +155,45 @@ export class SecurityService {
   }
 
   /**
-   * Sauvegarde le PIN/Mot de passe de l'utilisateur.
+   * Hache le PIN avec un sel propre à l'appareil et à la clé maître
    */
-  static async saveUserPin(pin: string): Promise<void> {
-    await this.setItemSafe(STORE_KEY_USER_PIN, pin);
+  private static async hashPin(pin: string): Promise<string> {
+    const deviceId = await this.getDeviceId();
+    const payload = `${pin}_${deviceId}_${APP_MASTER_SECRET_SALT}`;
+    return await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      payload,
+      { encoding: Crypto.CryptoEncoding.HEX }
+    );
   }
 
   /**
-   * Vérifie si le PIN saisi correspond au PIN sauvegardé.
+   * Sauvegarde le PIN de l'utilisateur sous forme de hash SHA-256 sécurisé.
+   */
+  static async saveUserPin(pin: string): Promise<void> {
+    const hashedPin = await this.hashPin(pin);
+    await this.setItemSafe(STORE_KEY_USER_PIN, hashedPin);
+  }
+
+  /**
+   * Vérifie si le PIN saisi correspond au PIN sauvegardé (supporte la migration automatique).
    */
   static async verifyUserPin(inputPin: string): Promise<boolean> {
     const savedPin = await this.getItemSafe(STORE_KEY_USER_PIN);
-    return inputPin === savedPin;
+    if (!savedPin) return false;
+
+    const hashedInput = await this.hashPin(inputPin);
+    if (savedPin === hashedInput) {
+      return true;
+    }
+
+    // Migration transparente pour les anciens PINs stockés en clair
+    if (savedPin === inputPin) {
+      await this.saveUserPin(inputPin);
+      return true;
+    }
+
+    return false;
   }
 
   /**
@@ -174,6 +201,6 @@ export class SecurityService {
    */
   static async hasUserPin(): Promise<boolean> {
     const savedPin = await this.getItemSafe(STORE_KEY_USER_PIN);
-    return savedPin !== null && savedPin !== undefined;
+    return savedPin !== null && savedPin !== undefined && savedPin !== '';
   }
 }

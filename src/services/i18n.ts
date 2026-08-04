@@ -53,8 +53,9 @@ type TranslationKeys =
   | 'export_students' | 'list_type' | 'active_students' | 'archived_students' | 'filter_by_status' | 'filter_by_date' | 'select_year' | 'select_month' | 'export_all' | 'export_pdf_button' | 'export_csv_button'
   | 'tva_calculation' | 'tva_annual_report' | 'enrolled_students_count' | 'total_tva_due' | 'select_year_tva' | 'generate_tva_pdf'
   | 'transaction_actions' | 'edit_transaction' | 'delete_transaction' | 'transaction_deleted_toast' | 'transaction_updated_toast'
-  | 'trash' | 'empty_trash' | 'restore' | 'deleted_permanently' | 'trash_empty' | 'moved_to_trash' | 'restored_success' | 'emptied_success' | 'student_restored' | 'student_deleted_forever' | 'transaction_restored' | 'transaction_deleted_forever' | 'confirm_empty_trash'
-  | 'school_name' | 'edit_school_name' | 'school_name_updated' | 'generate_receipt' | 'no_payments_receipt' | 'backup_restore' | 'export_backup' | 'import_backup' | 'backup_error' | 'maintenance_alerts' | 'financial_chart';
+  | 'school_name' | 'edit_school_name' | 'school_name_updated' | 'generate_receipt' | 'no_payments_receipt' | 'backup_restore' | 'export_backup' | 'import_backup' | 'backup_error' | 'maintenance_alerts' | 'financial_chart'
+  | 'trash' | 'empty_trash' | 'confirm_empty_trash' | 'trash_empty' | 'moved_to_trash' | 'restore' | 'restored_success' | 'emptied_success' | 'deleted_permanently' | 'student_restored' | 'student_deleted_forever' | 'transaction_restored' | 'transaction_deleted_forever'
+  | 'license_type' | 'license_type_all' | 'filter_by_license' | 'export_staff' | 'export_staff_desc' | 'photo_vehicle' | 'change_photo' | 'lock_app';
 
 type Translations = Record<Lang, Record<TranslationKeys, string>>;
 
@@ -292,7 +293,15 @@ export const translations: Translations = {
     import_backup: "Restaurer une Sauvegarde",
     backup_error: "Erreur lors de la sauvegarde/restauration.",
     maintenance_alerts: "Alertes de Maintenance",
-    financial_chart: "Aperçu Financier (Revenus vs Dépenses)"
+    financial_chart: "Aperçu Financier (Revenus vs Dépenses)",
+    license_type: "Permis",
+    license_type_all: "Tous les Permis",
+    filter_by_license: "Filtrer par permis",
+    export_staff: "Exporter le Personnel",
+    export_staff_desc: "Exporter la liste du personnel en PDF/CSV",
+    photo_vehicle: "Photo du véhicule",
+    change_photo: "Changer la photo",
+    lock_app: "Verrouiller"
   },
   ar: {
     app_name: 'مدرستي',
@@ -527,7 +536,15 @@ export const translations: Translations = {
     import_backup: "استعادة النسخة الاحتياطية",
     backup_error: "خطأ أثناء النسخ الاحتياطي أو الاستعادة.",
     maintenance_alerts: "تنبيهات الصيانة",
-    financial_chart: "مخطط مالي (المداخيل مقابل المصاريف)"
+    financial_chart: "مخطط مالي (المداخيل مقابل المصاريف)",
+    license_type: "صنف الرخصة",
+    license_type_all: "جميع الأصناف",
+    filter_by_license: "تصفية حسب صنف الرخصة",
+    export_staff: "تصدير طاقم العمل",
+    export_staff_desc: "تصدير قائمة طاقم العمل بملف PDF/CSV",
+    photo_vehicle: "صورة المركبة",
+    change_photo: "تغيير الصورة",
+    lock_app: "قفل التطبيق"
   },
 };
 

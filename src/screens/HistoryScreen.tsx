@@ -319,13 +319,27 @@ export function HistoryScreen() {
     }
   };
 
-  const renderTransaction = ({ item }: { item: Transaction }) => {
+  const renderTransaction = ({ item }: { item: any }) => {
     const isIncome = item.type === 'INCOME';
     const icon = isIncome ? '⬆️' : '⬇️';
     const amountColor = isIncome ? colors.success : colors.danger;
     const prefix = isIncome ? '+' : '-';
     
     const iconBgColor = isIncome ? (isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7') : (isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2');
+
+    let mainTitle = getTranslatedCategory(item.category_name);
+    let subTitle = item.description || '';
+
+    if (item.student_name) {
+      mainTitle = `🎓 ${item.student_name} (Permis ${item.license_type || 'B'})`;
+      subTitle = `${getTranslatedCategory(item.category_name)}${item.description ? ' • ' + item.description : ''}`;
+    } else if (item.vehicle_name) {
+      mainTitle = `🚘 ${item.vehicle_name} [${item.vehicle_reg || ''}]`;
+      subTitle = `${getTranslatedCategory(item.category_name)}${item.description ? ' • ' + item.description : ''}`;
+    } else if (item.staff_name) {
+      mainTitle = `👤 ${item.staff_name} (${item.staff_role || ''})`;
+      subTitle = `${getTranslatedCategory(item.category_name)}${item.description ? ' • ' + item.description : ''}`;
+    }
 
     return (
       <TouchableOpacity 
@@ -341,16 +355,16 @@ export function HistoryScreen() {
         <View style={[styles.cardContent, isRTL && styles.cardContentRTL]}>
           <View style={[styles.cardHeader, isRTL && styles.rowRTL]}>
             <Text style={[styles.categoryName, isRTL && styles.textRTL]} numberOfLines={1}>
-              {getTranslatedCategory(item.category_name)}
+              {mainTitle}
             </Text>
             <Text style={[styles.amount, { color: amountColor }]}>
               {prefix}{Math.abs(item.amount).toFixed(2)} DH
             </Text>
           </View>
 
-          {item.description ? (
+          {subTitle ? (
             <Text style={[styles.description, isRTL && styles.textRTL]} numberOfLines={2}>
-              {item.description}
+              {subTitle}
             </Text>
           ) : null}
 

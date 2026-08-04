@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, ActivityIndicator, RefreshControl, Alert, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, ActivityIndicator, RefreshControl, Alert, ScrollView, Platform, Linking } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { DatabaseService } from '../services/DatabaseService';
@@ -17,6 +17,7 @@ export function StudentsScreen() {
   const [filtered, setFiltered] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'ACTIVE'|'ARCHIVED'>('ACTIVE');
+  const [filterLicense, setFilterLicense] = useState<string>('ALL');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -33,6 +34,7 @@ export function StudentsScreen() {
   const [phone, setPhone] = useState('');
   const [packagePrice, setPackagePrice] = useState('');
   const [advance, setAdvance] = useState('');
+  const [licenseType, setLicenseType] = useState<string>('B');
   const [saving, setSaving] = useState(false);
 
   // Archive modal state
@@ -46,6 +48,7 @@ export function StudentsScreen() {
   const [exportModalVisible, setExportModalVisible] = useState(false);
   const [exportListType, setExportListType] = useState<'ACTIVE' | 'ARCHIVED'>('ACTIVE');
   const [exportOutcomeStatus, setExportOutcomeStatus] = useState<'ALL' | 'PASSED' | 'FAILED' | 'ABANDONED'>('ALL');
+  const [exportLicenseType, setExportLicenseType] = useState<string>('ALL');
   const [exportYear, setExportYear] = useState<string>('ALL');
   const [exportMonth, setExportMonth] = useState<string>('ALL');
   const [exporting, setExporting] = useState(false);
@@ -71,12 +74,16 @@ export function StudentsScreen() {
   useEffect(() => {
     let filteredData = students.filter(s => (s.status || 'ACTIVE') === filterStatus);
     
+    if (filterLicense !== 'ALL') {
+      filteredData = filteredData.filter(s => (s.license_type || 'B') === filterLicense);
+    }
+
     if (search.trim()) {
       const q = search.toLowerCase();
       filteredData = filteredData.filter((s) => s.name?.toLowerCase().includes(q) || s.phone?.includes(q));
     }
     setFiltered(filteredData);
-  }, [search, students, filterStatus]);
+  }, [search, students, filterStatus, filterLicense]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -88,6 +95,7 @@ export function StudentsScreen() {
     setPhone('');
     setPackagePrice('');
     setAdvance('');
+    setLicenseType('B');
     setEditingStudent(null);
   };
 
@@ -102,6 +110,7 @@ export function StudentsScreen() {
     setPhone(student.phone || '');
     setPackagePrice(String(student.package_price || 0));
     setAdvance('');
+    setLicenseType(student.license_type || 'B');
     setModalVisible(true);
   };
 
@@ -212,19 +221,19 @@ export function StudentsScreen() {
     setSaving(true);
     try {
       if (editingStudent) {
-        await DatabaseService.updateStudent(editingStudent.id, name.trim(), phone.trim(), priceVal);
+        await DatabaseService.updateStudent(editingStudent.id, name.trim(), phone.trim(), priceVal, licenseType);
         if (advanceVal > 0) {
           const cats = await DatabaseService.getCategories('INCOME');
           const catId = cats.length > 0 ? cats[0].id : 1;
           await DatabaseService.addIncome(advanceVal, catId, editingStudent.id, 'Avance sur forfait');
         }
-        showToast(t('student_updated'));
+        showToast(t('student_updated') || 'Élève mis à jour');
       } else {
-        await DatabaseService.addStudent(name.trim(), phone.trim(), priceVal, advanceVal > 0 ? advanceVal : undefined);
-        showToast(t('student_added'));
+        await DatabaseService.addStudent(name.trim(), phone.trim(), priceVal, advanceVal, licenseType);
+        showToast(t('student_added') || 'Élève ajouté avec succès');
       }
-      resetForm();
       setModalVisible(false);
+      resetForm();
       loadStudents();
     } catch {
       showToast(t('error'));
@@ -311,6 +320,27 @@ export function StudentsScreen() {
     }
   };
 
+  const handleSendWhatsApp = (student: any) => {
+    if (!student.phone) {
+      showToast("Aucun numéro de téléphone");
+      return;
+    }
+    let cleanPhone = student.phone.replace(/[^0-9]/g, '');
+    if (cleanPhone.startsWith('0')) {
+      cleanPhone = '212' + cleanPhone.slice(1);
+    }
+    const balance = (student.package_price || 0) - (student.paid_amount || 0);
+    const msg = `Bonjour ${student.name}, l'Auto-École vous informe sur l'état de votre dossier (Permis ${student.license_type || 'B'}):\n` +
+      `• Prix Forfait: ${(student.package_price || 0).toFixed(0)} DH\n` +
+      `• Montant Versé: ${(student.paid_amount || 0).toFixed(0)} DH\n` +
+      `• Reste à Payer: ${balance > 0 ? balance.toFixed(0) + ' DH' : 'Soldé'}\n` +
+      `Merci pour votre confiance ! 🚗`;
+    
+    Linking.openURL(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`).catch(() => {
+      showToast("Impossible d'ouvrir WhatsApp");
+    });
+  };
+
   const renderStudent = ({ item }: { item: any }) => {
     const balance = (item.package_price || 0) - (item.paid_amount || 0);
     const isPaid = balance <= 0;
@@ -319,8 +349,21 @@ export function StudentsScreen() {
     return (
       <View style={styles.card}>
         <View style={[styles.cardHeader, isRTL && styles.rowReverse]}>
-          <Text style={[styles.cardName, isRTL && styles.textRight]}>{item.name}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.cardName, isRTL && styles.textRight]}>{item.name}</Text>
+            <View style={{ marginTop: 2, flexDirection: 'row', alignItems: 'center' }}>
+              <View style={[styles.badge, { backgroundColor: colors.primary + '20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }]}>
+                <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '700' }}>🏷️ Permis {item.license_type || 'B'}</Text>
+              </View>
+            </View>
+          </View>
           <View style={[styles.cardActions, isRTL && styles.rowReverse]}>
+            <TouchableOpacity 
+              style={[styles.historyBtn, { backgroundColor: '#25D36620' }]} 
+              onPress={() => handleSendWhatsApp(item)}
+            >
+              <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
+            </TouchableOpacity>
             <TouchableOpacity style={styles.historyBtn} onPress={() => openHistoryModal(item)}>
               <Ionicons name="receipt-outline" size={18} color={colors.primary} />
             </TouchableOpacity>
@@ -451,6 +494,25 @@ export function StudentsScreen() {
           onChangeText={setSearch}
           placeholderTextColor={colors.textSecondary}
         />
+
+        {/* Filter by License Type */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+          {['ALL', 'A', 'B', 'C', 'D', 'EC'].map((type) => (
+            <TouchableOpacity
+              key={type}
+              style={[
+                styles.tab,
+                { paddingHorizontal: 12, paddingVertical: 6, marginRight: 6, borderRadius: 16 },
+                filterLicense === type && styles.activeTab
+              ]}
+              onPress={() => setFilterLicense(type)}
+            >
+              <Text style={[styles.tabText, filterLicense === type && styles.activeTabText, { fontSize: 12 }]}>
+                {type === 'ALL' ? t('license_type_all') : `Permis ${type}`}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       {/* List */}
@@ -501,6 +563,25 @@ export function StudentsScreen() {
                 keyboardType="phone-pad"
                 placeholderTextColor={colors.textSecondary}
               />
+
+              {/* Type de Permis */}
+              <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('license_type') || 'Type de Permis'}</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                {['A', 'B', 'C', 'D', 'EC'].map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
+                      licenseType === type ? { backgroundColor: colors.primary, borderColor: colors.primary } : { backgroundColor: colors.surface }
+                    ]}
+                    onPress={() => setLicenseType(type)}
+                  >
+                    <Text style={[{ fontSize: 13, fontWeight: '600', color: colors.text }, licenseType === type && { color: '#fff' }]}>
+                      Permis {type}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
               {/* Prix du forfait */}
               <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('package_price')} (DH)</Text>

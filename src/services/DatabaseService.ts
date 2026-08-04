@@ -83,9 +83,42 @@ export class DatabaseService {
         change_date DATETIME DEFAULT CURRENT_TIMESTAMP,
         mileage_at_change INTEGER NOT NULL,
         next_mileage INTEGER NOT NULL,
-        FOREIGN KEY (vehicle_id) REFERENCES Vehicles (id)
+        -- Table des Agences (Multi-Agences)
+      CREATE TABLE IF NOT EXISTS Agencies (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        city TEXT,
+        sync_code TEXT,
+        is_main INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    // Migrations multi-agences
+    try {
+      await this.db.execAsync('ALTER TABLE Students ADD COLUMN agency_id INTEGER DEFAULT 1;');
+    } catch (e) {}
+    try {
+      await this.db.execAsync('ALTER TABLE Vehicles ADD COLUMN agency_id INTEGER DEFAULT 1;');
+    } catch (e) {}
+    try {
+      await this.db.execAsync('ALTER TABLE Transactions ADD COLUMN agency_id INTEGER DEFAULT 1;');
+    } catch (e) {}
+    try {
+      await this.db.execAsync('ALTER TABLE Staff ADD COLUMN agency_id INTEGER DEFAULT 1;');
+    } catch (e) {}
+    try {
+      await this.db.execAsync('ALTER TABLE OilChanges ADD COLUMN agency_id INTEGER DEFAULT 1;');
+    } catch (e) {}
+
+    // Initialiser l'agence principale par défaut s'il n'y en a aucune
+    try {
+      await this.db.execAsync(`
+        INSERT INTO Agencies (id, name, city, is_main)
+        SELECT 1, 'Auto-École Principale', 'Casablanca', 1
+        WHERE NOT EXISTS (SELECT 1 FROM Agencies WHERE id = 1);
+      `);
+    } catch (e) {}
 
     // Migrations pour ajouter les colonnes liées au personnel si elles n'existent pas
     try {
@@ -132,6 +165,14 @@ export class DatabaseService {
       await this.db.execAsync('ALTER TABLE Transactions ADD COLUMN is_deleted INTEGER DEFAULT 0;');
     } catch (e) {}
 
+    try {
+      await this.db.execAsync('ALTER TABLE Students ADD COLUMN license_type TEXT DEFAULT "B";');
+    } catch (e) {}
+
+    try {
+      await this.db.execAsync('ALTER TABLE Vehicles ADD COLUMN image_uri TEXT;');
+    } catch (e) {}
+
     // Migration pour ajouter la catégorie "Autre"
     try {
       await this.db.execAsync(`
@@ -171,10 +212,14 @@ export class DatabaseService {
   // STUDENTS
   // =========================================================================
 
+  // =========================================================================
+  // STUDENTS
+  // =========================================================================
+
   static async getStudents(): Promise<any[]> {
     if (!this.db) await this.initDB();
     return await this.db!.getAllAsync(`
-      SELECT s.id, s.name, s.package_price, s.phone, s.created_at, s.status, s.exit_date, s.outcome_status,
+      SELECT s.id, s.name, s.package_price, s.phone, s.created_at, s.status, s.exit_date, s.outcome_status, s.license_type,
         COALESCE((SELECT SUM(t.amount) FROM Transactions t WHERE t.student_id = s.id AND t.type = 'INCOME' AND t.is_deleted = 0), 0) as paid_amount
       FROM Students s
       WHERE s.is_deleted = 0
@@ -182,12 +227,12 @@ export class DatabaseService {
     `);
   }
 
-  static async addStudent(name: string, phone: string, packagePrice: number, advance?: number): Promise<void> {
+  static async addStudent(name: string, phone: string, packagePrice: number, advance?: number, licenseType: string = 'B'): Promise<void> {
     if (!this.db) await this.initDB();
     await this.db!.withTransactionAsync(async () => {
       const result = await this.db!.runAsync(
-        'INSERT INTO Students (name, phone, package_price) VALUES (?, ?, ?)',
-        name, phone, packagePrice
+        'INSERT INTO Students (name, phone, package_price, license_type) VALUES (?, ?, ?, ?)',
+        name, phone, packagePrice, licenseType || 'B'
       );
       if (advance && advance > 0) {
         const cat = await this.db!.getFirstAsync<{id: number}>(
@@ -203,11 +248,11 @@ export class DatabaseService {
     });
   }
 
-  static async updateStudent(id: number, name: string, phone: string, packagePrice: number): Promise<void> {
+  static async updateStudent(id: number, name: string, phone: string, packagePrice: number, licenseType: string = 'B'): Promise<void> {
     if (!this.db) await this.initDB();
     await this.db!.runAsync(
-      'UPDATE Students SET name = ?, phone = ?, package_price = ? WHERE id = ?',
-      name, phone, packagePrice, id
+      'UPDATE Students SET name = ?, phone = ?, package_price = ?, license_type = ? WHERE id = ?',
+      name, phone, packagePrice, licenseType || 'B', id
     );
   }
 
@@ -232,7 +277,8 @@ export class DatabaseService {
   static async getVehicles(): Promise<any[]> {
     if (!this.db) await this.initDB();
     return await this.db!.getAllAsync(`
-      SELECT v.id, v.name, v.registration, v.current_mileage, v.next_technical_visit, v.insurance_date, v.vignette_date,
+      SELECT v.id, v.name, v.registration, v.current_mileage, v.next_technical_visit, v.insurance_date, v.vignette_date, v.image_uri,
+        COALESCE((SELECT SUM(t.amount) FROM Transactions t WHERE t.vehicle_id = v.id AND t.type = 'EXPENSE' AND t.is_deleted = 0), 0) as total_expenses,
         COALESCE(
           (SELECT o.next_mileage FROM OilChanges o WHERE o.vehicle_id = v.id ORDER BY o.id DESC LIMIT 1),
           v.current_mileage + 10000
@@ -260,13 +306,14 @@ export class DatabaseService {
     nextVisit: string, 
     oilChangeDate?: string,
     insuranceDate?: string,
-    vignetteDate?: string
+    vignetteDate?: string,
+    imageUri?: string
   ): Promise<void> {
     if (!this.db) await this.initDB();
     await this.db!.withTransactionAsync(async () => {
       const result = await this.db!.runAsync(
-        'INSERT INTO Vehicles (name, registration, current_mileage, next_technical_visit, insurance_date, vignette_date) VALUES (?, ?, ?, ?, ?, ?)',
-        name, registration, mileage, nextVisit || null, insuranceDate || null, vignetteDate || null
+        'INSERT INTO Vehicles (name, registration, current_mileage, next_technical_visit, insurance_date, vignette_date, image_uri) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        name, registration, mileage, nextVisit || null, insuranceDate || null, vignetteDate || null, imageUri || null
       );
       if (oilChangeDate) {
         const nextOilMileage = mileage + 10000;
@@ -285,12 +332,13 @@ export class DatabaseService {
     mileage: number, 
     nextVisit: string,
     insuranceDate?: string,
-    vignetteDate?: string
+    vignetteDate?: string,
+    imageUri?: string
   ): Promise<void> {
     if (!this.db) await this.initDB();
     await this.db!.runAsync(
-      'UPDATE Vehicles SET name = ?, registration = ?, current_mileage = ?, next_technical_visit = ?, insurance_date = ?, vignette_date = ? WHERE id = ?',
-      name, registration, mileage, nextVisit || null, insuranceDate || null, vignetteDate || null, id
+      'UPDATE Vehicles SET name = ?, registration = ?, current_mileage = ?, next_technical_visit = ?, insurance_date = ?, vignette_date = ?, image_uri = ? WHERE id = ?',
+      name, registration, mileage, nextVisit || null, insuranceDate || null, vignetteDate || null, imageUri || null, id
     );
   }
 
@@ -326,9 +374,15 @@ export class DatabaseService {
     return await this.db!.getAllAsync(`
       SELECT t.id, t.amount, t.type, t.description, t.transaction_date as date, 
              t.category_id, t.student_id, t.vehicle_id, t.staff_id, t.fuel_liters, t.mileage_at_transaction,
-             c.name as category_name
+             c.name as category_name,
+             s.name as student_name, s.license_type,
+             v.name as vehicle_name, v.registration as vehicle_reg,
+             st.name as staff_name, st.role as staff_role
       FROM Transactions t
       LEFT JOIN Categories c ON t.category_id = c.id
+      LEFT JOIN Students s ON t.student_id = s.id
+      LEFT JOIN Vehicles v ON t.vehicle_id = v.id
+      LEFT JOIN Staff st ON t.staff_id = st.id
       WHERE t.is_deleted = 0
       ORDER BY t.transaction_date DESC
     `);
@@ -339,9 +393,17 @@ export class DatabaseService {
     const today = new Date().toISOString().split('T')[0];
     const likePattern = `${today}%`;
     return await this.db!.getAllAsync(`
-      SELECT t.id, t.amount, t.type, t.description, t.transaction_date as date, c.name as category_name
+      SELECT t.id, t.amount, t.type, t.description, t.transaction_date as date, 
+             t.category_id, t.student_id, t.vehicle_id, t.staff_id, t.fuel_liters, t.mileage_at_transaction,
+             c.name as category_name,
+             s.name as student_name, s.license_type,
+             v.name as vehicle_name, v.registration as vehicle_reg,
+             st.name as staff_name, st.role as staff_role
       FROM Transactions t
       LEFT JOIN Categories c ON t.category_id = c.id
+      LEFT JOIN Students s ON t.student_id = s.id
+      LEFT JOIN Vehicles v ON t.vehicle_id = v.id
+      LEFT JOIN Staff st ON t.staff_id = st.id
       WHERE t.transaction_date LIKE ? AND t.is_deleted = 0
       ORDER BY t.transaction_date DESC
     `, [likePattern]);
@@ -355,7 +417,8 @@ export class DatabaseService {
     if (!this.db) await this.initDB();
     return await this.db!.getAllAsync(`
       SELECT s.id, s.name, s.phone, s.role, s.base_salary, s.created_at,
-        COALESCE((SELECT SUM(t.amount) FROM Transactions t WHERE t.staff_id = s.id AND t.type = 'EXPENSE' AND t.is_deleted = 0), 0) as paid_amount
+        COALESCE((SELECT SUM(t.amount) FROM Transactions t WHERE t.staff_id = s.id AND t.type = 'EXPENSE' AND t.is_deleted = 0), 0) as paid_amount,
+        COALESCE((SELECT COUNT(t.id) FROM Transactions t WHERE t.staff_id = s.id AND t.is_deleted = 0), 0) as total_sessions
       FROM Staff s
       ORDER BY s.created_at DESC
     `);
@@ -551,11 +614,12 @@ export class DatabaseService {
     year?: string;
     month?: string;
     outcomeStatus?: string;
+    licenseType?: string;
   }): Promise<any[]> {
     if (!this.db) await this.initDB();
     
     let query = `
-      SELECT s.id, s.name, s.package_price, s.phone, s.created_at, s.status, s.exit_date, s.outcome_status,
+      SELECT s.id, s.name, s.package_price, s.phone, s.created_at, s.status, s.exit_date, s.outcome_status, s.license_type,
         COALESCE((SELECT SUM(t.amount) FROM Transactions t WHERE t.student_id = s.id AND t.type = 'INCOME' AND t.is_deleted = 0), 0) as paid_amount
       FROM Students s
       WHERE s.is_deleted = 0
@@ -570,6 +634,11 @@ export class DatabaseService {
     if (options.outcomeStatus && options.outcomeStatus !== 'ALL') {
       query += ` AND s.outcome_status = ?`;
       params.push(options.outcomeStatus);
+    }
+
+    if (options.licenseType && options.licenseType !== 'ALL') {
+      query += ` AND s.license_type = ?`;
+      params.push(options.licenseType);
     }
 
     if (options.year && options.year !== 'ALL') {
@@ -741,6 +810,86 @@ export class DatabaseService {
         expense: summary?.expense || 0
       });
     }
+
     return result;
+  }
+
+  // =========================================================================
+  // AGENCIES & NETWORK COMPARATIVE SUMMARY (Multi-Agences)
+  // =========================================================================
+
+  static async getAgencies(): Promise<any[]> {
+    if (!this.db) await this.initDB();
+    return await this.db!.getAllAsync('SELECT * FROM Agencies ORDER BY is_main DESC, id ASC');
+  }
+
+  static async addAgency(name: string, city: string, isMain: number = 0): Promise<void> {
+    if (!this.db) await this.initDB();
+    const syncCode = `SYNC_${name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)}_${Math.floor(1000 + Math.random() * 9000)}`;
+    await this.db!.runAsync(
+      'INSERT INTO Agencies (name, city, sync_code, is_main) VALUES (?, ?, ?, ?)',
+      name, city || null, syncCode, isMain
+    );
+  }
+
+  static async updateAgency(id: number, name: string, city: string): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.runAsync('UPDATE Agencies SET name = ?, city = ? WHERE id = ?', name, city || null, id);
+  }
+
+  static async deleteAgency(id: number): Promise<void> {
+    if (!this.db) await this.initDB();
+    await this.db!.runAsync('DELETE FROM Agencies WHERE id = ? AND is_main = 0', id);
+  }
+
+  static async getNetworkSummary(): Promise<any[]> {
+    if (!this.db) await this.initDB();
+    const agencies = await this.getAgencies();
+    const summaryList: any[] = [];
+
+    for (const a of agencies) {
+      const studentCountRes = await this.db!.getFirstAsync<{ count: number }>(
+        'SELECT COUNT(*) as count FROM Students WHERE agency_id = ? AND is_deleted = 0',
+        [a.id]
+      );
+      const passedCountRes = await this.db!.getFirstAsync<{ count: number }>(
+        'SELECT COUNT(*) as count FROM Students WHERE agency_id = ? AND outcome_status = "PASSED" AND is_deleted = 0',
+        [a.id]
+      );
+      const examinedCountRes = await this.db!.getFirstAsync<{ count: number }>(
+        'SELECT COUNT(*) as count FROM Students WHERE agency_id = ? AND outcome_status IN ("PASSED", "FAILED") AND is_deleted = 0',
+        [a.id]
+      );
+      const finRes = await this.db!.getFirstAsync<{ income: number; expense: number }>(`
+        SELECT 
+          COALESCE(SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END), 0) as income,
+          COALESCE(SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END), 0) as expense
+        FROM Transactions
+        WHERE agency_id = ? AND is_deleted = 0
+      `, [a.id]);
+
+      const studentCount = studentCountRes?.count || 0;
+      const passedCount = passedCountRes?.count || 0;
+      const examinedCount = examinedCountRes?.count || 0;
+      const income = finRes?.income || 0;
+      const expense = finRes?.expense || 0;
+      const net = income - expense;
+      const passRate = examinedCount > 0 ? Math.round((passedCount / examinedCount) * 100) : 0;
+
+      summaryList.push({
+        id: a.id,
+        name: a.name,
+        city: a.city,
+        sync_code: a.sync_code,
+        is_main: a.is_main,
+        student_count: studentCount,
+        income,
+        expense,
+        net,
+        pass_rate: passRate
+      });
+    }
+
+    return summaryList;
   }
 }

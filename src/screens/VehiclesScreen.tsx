@@ -26,6 +26,8 @@ export function VehiclesScreen() {
   const [vignetteDate, setVignetteDate] = useState('');
   const [saving, setSaving] = useState(false);
 
+  const [imageUri, setImageUri] = useState<string | null>(null);
+
   // Date pickers
   const [showVisitPicker, setShowVisitPicker] = useState(false);
   const [showOilPicker, setShowOilPicker] = useState(false);
@@ -61,6 +63,7 @@ export function VehiclesScreen() {
     setOilChangeDate('');
     setInsuranceDate('');
     setVignetteDate('');
+    setImageUri(null);
     setEditingVehicle(null);
   };
 
@@ -78,6 +81,7 @@ export function VehiclesScreen() {
     setOilChangeDate('');
     setInsuranceDate(vehicle.insurance_date || '');
     setVignetteDate(vehicle.vignette_date || '');
+    setImageUri(vehicle.image_uri || null);
     setModalVisible(true);
   };
 
@@ -119,7 +123,8 @@ export function VehiclesScreen() {
           parseInt(mileage) || 0,
           nextVisit.trim(),
           insuranceDate.trim(),
-          vignetteDate.trim()
+          vignetteDate.trim(),
+          imageUri || undefined
         );
         showToast(t('vehicle_updated'));
       } else {
@@ -130,7 +135,8 @@ export function VehiclesScreen() {
           nextVisit.trim(),
           oilChangeDate.trim() || undefined,
           insuranceDate.trim(),
-          vignetteDate.trim()
+          vignetteDate.trim(),
+          imageUri || undefined
         );
         showToast(t('vehicle_added'));
       }
@@ -272,13 +278,23 @@ export function VehiclesScreen() {
         {item.avg_consumption > 0 && (
           <View style={[styles.row, isRTL && styles.rowReverse, { marginTop: 8 }]}>
             <Text style={[styles.cardDetail, item.avg_consumption > 10 && styles.textDanger]}>
-              ⛽ {t('consumption') || 'Consommation'}: {item.avg_consumption.toFixed(1)} L/100km
+              ⛽ Consommation moyenne: {item.avg_consumption.toFixed(1)} L / 100 km
             </Text>
-            {item.avg_consumption > 10 && (
-              <View style={[styles.alertDotRed, { marginLeft: isRTL ? 0 : 8, marginRight: isRTL ? 8 : 0 }]} />
-            )}
           </View>
         )}
+
+        <View style={{ marginTop: 12, padding: 10, backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', justifyContent: 'space-between' }}>
+          <View>
+            <Text style={{ fontSize: 11, color: colors.textSecondary }}>Total Dépenses</Text>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: colors.danger }}>{(item.total_expenses || 0).toLocaleString()} DH</Text>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={{ fontSize: 11, color: colors.textSecondary }}>Coût de revient / KM</Text>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>
+              {((item.total_expenses || 0) / Math.max(1, item.current_mileage || 1)).toFixed(2)} DH/km
+            </Text>
+          </View>
+        </View>
       </View>
     );
   };

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, ActivityIndicator, RefreshControl, Alert, ScrollView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { DatabaseService } from '../services/DatabaseService';
+import { ExportService } from '../services/ExportService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
 import { useTheme } from '../theme/ThemeContext';
@@ -155,7 +157,7 @@ export function StaffScreen() {
           <Text style={styles.cardDetail}>💼 {item.role}</Text>
         </View>
 
-        {/* Payment info */}
+        {/* Payment info & Performance */}
         <View style={[styles.paymentInfo, isRTL && styles.rowReverse]}>
           <View style={styles.paymentItem}>
             <Text style={styles.paymentLabel}>{t('base_salary')}</Text>
@@ -164,6 +166,10 @@ export function StaffScreen() {
           <View style={styles.paymentItem}>
             <Text style={styles.paymentLabel}>{t('salary')} (Reçu)</Text>
             <Text style={[styles.paymentValue, styles.greenText]}>{(item.paid_amount || 0).toFixed(0)} DH</Text>
+          </View>
+          <View style={styles.paymentItem}>
+            <Text style={styles.paymentLabel}>Activités liées</Text>
+            <Text style={[styles.paymentValue, { color: colors.primary }]}>{item.total_sessions || 0} op.</Text>
           </View>
         </View>
       </View>
@@ -180,14 +186,46 @@ export function StaffScreen() {
     );
   }
 
+  const handleExportStaffPDF = async () => {
+    try {
+      await ExportService.exportStaffPDF(filtered);
+      showToast(t('export_pdf_success') || 'PDF Exporté !');
+    } catch {
+      showToast(t('error'));
+    }
+  };
+
+  const handleExportStaffCSV = async () => {
+    try {
+      await ExportService.exportStaffCSV(filtered);
+      showToast(t('export_csv_success') || 'CSV Exporté !');
+    } catch {
+      showToast(t('error'));
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={[styles.header, isRTL && styles.rowReverse]}>
         <Text style={styles.headerTitle}>{t('staff')}</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
-          <Text style={styles.addBtnText}>{t('add_new')}</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity 
+            style={{ padding: 8, backgroundColor: colors.surface, borderRadius: 8, borderWidth: 1, borderColor: colors.border }} 
+            onPress={handleExportStaffPDF}
+          >
+            <Ionicons name="document-text-outline" size={18} color="#ef4444" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={{ padding: 8, backgroundColor: colors.surface, borderRadius: 8, borderWidth: 1, borderColor: colors.border }} 
+            onPress={handleExportStaffCSV}
+          >
+            <Ionicons name="stats-chart-outline" size={18} color="#16a34a" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
+            <Text style={styles.addBtnText}>{t('add_new')}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Search */}

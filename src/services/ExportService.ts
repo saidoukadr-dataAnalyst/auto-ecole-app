@@ -200,6 +200,7 @@ export class ExportService {
         tableRows += `
           <tr>
             <td>${s.name || ''}</td>
+            <td><strong>${s.license_type || 'B'}</strong></td>
             <td>${s.phone || '—'}</td>
             <td>${regDate}</td>
             <td>${(s.package_price || 0).toLocaleString()} DH</td>
@@ -230,6 +231,7 @@ export class ExportService {
           <table>
             <tr>
               <th>Nom</th>
+              <th>Permis</th>
               <th>Téléphone</th>
               <th>Date Inscription</th>
               ${isArchived ? `
@@ -241,7 +243,7 @@ export class ExportService {
               <th>Reste à Payer</th>
               `}
             </tr>
-            ${tableRows.length > 0 ? tableRows : `<tr><td colspan="${isArchived ? 5 : 6}" style="text-align: center; color: #94a3b8;">Aucun élève trouvé.</td></tr>`}
+            ${tableRows.length > 0 ? tableRows : `<tr><td colspan="${isArchived ? 6 : 7}" style="text-align: center; color: #94a3b8;">Aucun élève trouvé.</td></tr>`}
           </table>
           <div class="footer">
             Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}
@@ -510,6 +512,93 @@ export class ExportService {
 
     if (await Sharing.isAvailableAsync()) {
       await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+    }
+  }
+
+  /**
+   * Exporte la liste du personnel en PDF.
+   */
+  static async exportStaffPDF(staffList: any[]): Promise<void> {
+    const schoolName = await SecurityService.getSchoolName();
+    let rowsHtml = '';
+
+    staffList.forEach((s: any) => {
+      rowsHtml += `
+        <tr>
+          <td>${s.name || ''}</td>
+          <td>${s.role || '—'}</td>
+          <td>${s.phone || '—'}</td>
+          <td>${(s.base_salary || 0).toLocaleString()} DH</td>
+          <td style="color: #16a34a; font-weight: bold;">${(s.paid_amount || 0).toLocaleString()} DH</td>
+        </tr>
+      `;
+    });
+
+    const htmlContent = `
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <style>
+            body { font-family: 'Helvetica', 'Arial', sans-serif; padding: 24px; color: #333; }
+            h1 { color: #2563eb; text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 12px; font-size: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+            th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; font-size: 12px; }
+            th { background-color: #f8fafc; color: #475569; font-weight: 600; }
+            .footer { font-size: 11px; text-align: right; margin-top: 20px; color: #94a3b8; }
+          </style>
+        </head>
+        <body>
+          <h1>👥 ${schoolName} - Liste du Personnel</h1>
+          <table>
+            <thead>
+              <tr>
+                <th>Nom</th>
+                <th>Rôle</th>
+                <th>Téléphone</th>
+                <th>Salaire de base</th>
+                <th>Montant Versé</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml.length > 0 ? rowsHtml : '<tr><td colspan="5" style="text-align: center; color: #94a3b8;">Aucun membre du personnel enregistré.</td></tr>'}
+            </tbody>
+          </table>
+          <div class="footer">
+            Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}
+          </div>
+        </body>
+      </html>
+    `;
+
+    const { uri } = await Print.printToFileAsync({ html: htmlContent });
+
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+    }
+  }
+
+  /**
+   * Exporte la liste du personnel en CSV.
+   */
+  static async exportStaffCSV(staffList: any[]): Promise<void> {
+    let csvString = "\uFEFF"; // BOM UTF-8
+    csvString += "Nom,Rôle,Téléphone,Salaire de Base(DH),Montant Versé(DH)\n";
+
+    staffList.forEach((s: any) => {
+      const name = (s.name || '').replace(/"/g, '""');
+      const role = (s.role || '').replace(/"/g, '""');
+      const phone = (s.phone || '').replace(/"/g, '""');
+      csvString += `"${name}","${role}","${phone}",${s.base_salary || 0},${s.paid_amount || 0}\n`;
+    });
+
+    if (!FileSystem.documentDirectory) throw new Error("Document directory not available");
+
+    const fileName = `Export_Personnel_${new Date().toISOString().split('T')[0]}.csv`;
+    const fileUri = FileSystem.documentDirectory + fileName;
+    await FileSystem.writeAsStringAsync(fileUri, csvString, { encoding: FileSystem.EncodingType.UTF8 });
+
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(fileUri, { UTI: '.csv', mimeType: 'text/csv' });
     }
   }
 }

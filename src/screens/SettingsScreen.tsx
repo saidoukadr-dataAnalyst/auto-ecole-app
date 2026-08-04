@@ -11,7 +11,7 @@ import { showToast } from '../services/ToastService';
 import { useTheme } from '../theme/ThemeContext';
 import { ThemeColors } from '../theme/colors';
 
-type ActionKey = 'pdf' | 'csv' | 'backup' | 'change_pin' | 'lock' | 'tva' | 'trash' | 'school_name' | 'export_backup' | 'import_backup';
+type ActionKey = 'pdf' | 'csv' | 'backup' | 'change_pin' | 'lock' | 'tva' | 'trash' | 'school_name' | 'export_backup' | 'import_backup' | 'network_compare' | 'manage_agencies';
 
 export function SettingsScreen() {
   const { t, isRTL } = useLanguage();
@@ -23,6 +23,17 @@ export function SettingsScreen() {
   const [currentPin, setCurrentPin] = useState('');
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
+
+  // Network Comparative Dashboard state
+  const [showNetworkModal, setShowNetworkModal] = useState(false);
+  const [networkSummary, setNetworkSummary] = useState<any[]>([]);
+  const [loadingNetwork, setLoadingNetwork] = useState(false);
+
+  // Agency Management state
+  const [showAgencyModal, setShowAgencyModal] = useState(false);
+  const [agenciesList, setAgenciesList] = useState<any[]>([]);
+  const [newAgencyName, setNewAgencyName] = useState('');
+  const [newAgencyCity, setNewAgencyCity] = useState('');
 
   // TVA calculator state
   const [showTvaModal, setShowTvaModal] = useState(false);
@@ -75,6 +86,27 @@ export function SettingsScreen() {
     }
   };
 
+  const loadNetworkData = async () => {
+    setLoadingNetwork(true);
+    try {
+      const summary = await DatabaseService.getNetworkSummary();
+      setNetworkSummary(summary);
+    } catch {
+      showToast(t('error'));
+    } finally {
+      setLoadingNetwork(false);
+    }
+  };
+
+  const loadAgenciesData = async () => {
+    try {
+      const list = await DatabaseService.getAgencies();
+      setAgenciesList(list);
+    } catch {
+      showToast(t('error'));
+    }
+  };
+
   const handleAction = async (action: ActionKey) => {
     if (loadingAction) return;
     setLoadingAction(action);
@@ -119,6 +151,14 @@ export function SettingsScreen() {
         case 'trash':
           setShowTrashModal(true);
           loadTrashItems();
+          break;
+        case 'network_compare':
+          setShowNetworkModal(true);
+          loadNetworkData();
+          break;
+        case 'manage_agencies':
+          setShowAgencyModal(true);
+          loadAgenciesData();
           break;
       }
     } catch {
@@ -292,6 +332,25 @@ export function SettingsScreen() {
           label: t('import_backup') || 'Restaurer une Sauvegarde',
           description: 'Importer des données à partir d\'un fichier JSON',
           color: '#f59e0b',
+        },
+      ],
+    },
+    {
+      title: '🏢 Multi-Agences (Propriétaire)',
+      items: [
+        {
+          key: 'network_compare',
+          icon: '📊',
+          label: 'Espace Comparatif Réseau',
+          description: 'Comparer le CA, bénéfice net et taux de succès des 5-6 agences',
+          color: '#8b5cf6',
+        },
+        {
+          key: 'manage_agencies',
+          icon: '🏫',
+          label: 'Gestion des Agences',
+          description: 'Ajouter ou configurer vos auto-écoles et codes de sync',
+          color: '#3b82f6',
         },
       ],
     },
@@ -659,6 +718,178 @@ export function SettingsScreen() {
                 </ScrollView>
               </View>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* NETWORK COMPARATIVE DASHBOARD MODAL */}
+      <Modal
+        visible={showNetworkModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowNetworkModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '90%' }]}>
+            <View style={[styles.modalHeader, isRTL && styles.rowRTL]}>
+              <Text style={[styles.modalTitle, isRTL && styles.textRTL, { marginBottom: 0 }]}>
+                📊 Espace Comparatif Réseau
+              </Text>
+              <TouchableOpacity onPress={() => setShowNetworkModal(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            {loadingNetwork ? (
+              <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: 30 }} />
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 16 }}>
+                  Comparaison en temps réel des performances des 5 à 6 auto-écoles de votre réseau.
+                </Text>
+
+                {/* PODIUM CARDS */}
+                {networkSummary.length > 0 && (
+                  <View style={{ marginBottom: 20 }}>
+                    <View style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: colors.border, marginBottom: 10 }}>
+                      <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: '600' }}>🥇 MEILLEUR REVENU NET</Text>
+                      <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text, marginTop: 4 }}>
+                        {networkSummary.reduce((prev, curr) => (curr.net > prev.net ? curr : prev), networkSummary[0])?.name}
+                      </Text>
+                      <Text style={{ fontSize: 14, color: colors.success, fontWeight: '700', marginTop: 2 }}>
+                        + {networkSummary.reduce((prev, curr) => (curr.net > prev.net ? curr : prev), networkSummary[0])?.net?.toLocaleString()} DH
+                      </Text>
+                    </View>
+
+                    <View style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: colors.border }}>
+                      <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: '600' }}>🥇 MEILLEUR TAUX DE SUCCÈS</Text>
+                      <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text, marginTop: 4 }}>
+                        {networkSummary.reduce((prev, curr) => (curr.pass_rate > prev.pass_rate ? curr : prev), networkSummary[0])?.name}
+                      </Text>
+                      <Text style={{ fontSize: 14, color: colors.primary, fontWeight: '700', marginTop: 2 }}>
+                        🏆 {networkSummary.reduce((prev, curr) => (curr.pass_rate > prev.pass_rate ? curr : prev), networkSummary[0])?.pass_rate}% de réussite
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* TABLEAU COMPARATIF */}
+                <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: 10 }}>
+                  📋 DÉTAIL PAR AUTO-ÉCOLE
+                </Text>
+
+                {networkSummary.map((item) => (
+                  <View key={item.id} style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: colors.border }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>
+                        🏫 {item.name} {item.is_main === 1 ? '(Principale)' : ''}
+                      </Text>
+                      <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '700' }}>
+                        🏆 {item.pass_rate}% Succès
+                      </Text>
+                    </View>
+
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+                      <Text style={{ fontSize: 12, color: colors.textSecondary }}>Élèves : <Text style={{ color: colors.text, fontWeight: '600' }}>{item.student_count}</Text></Text>
+                      <Text style={{ fontSize: 12, color: colors.success }}>Encaissements : +{item.income?.toLocaleString()} DH</Text>
+                    </View>
+
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+                      <Text style={{ fontSize: 12, color: colors.danger }}>Dépenses : -{item.expense?.toLocaleString()} DH</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '800', color: item.net >= 0 ? colors.success : colors.danger }}>
+                        Bénéfice : {item.net >= 0 ? '+' : ''}{item.net?.toLocaleString()} DH
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* AGENCY MANAGEMENT MODAL */}
+      <Modal
+        visible={showAgencyModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAgencyModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={[styles.modalHeader, isRTL && styles.rowRTL]}>
+              <Text style={[styles.modalTitle, isRTL && styles.textRTL, { marginBottom: 0 }]}>
+                🏫 Gestion des Agences
+              </Text>
+              <TouchableOpacity onPress={() => setShowAgencyModal(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 12 }}>
+                Ajoutez vos 5-6 auto-écoles pour configurer l'espace réseau.
+              </Text>
+
+              <Text style={styles.fieldLabel}>Nom de la nouvelle agence</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ex: Auto-École Rabat Agdal"
+                value={newAgencyName}
+                onChangeText={setNewAgencyName}
+                placeholderTextColor={colors.textSecondary}
+              />
+
+              <Text style={styles.fieldLabel}>Ville</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ex: Rabat"
+                value={newAgencyCity}
+                onChangeText={setNewAgencyCity}
+                placeholderTextColor={colors.textSecondary}
+              />
+
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.saveBtn, { marginTop: 16, marginBottom: 20 }]}
+                onPress={async () => {
+                  if (!newAgencyName.trim()) {
+                    showToast('Veuillez saisir un nom d\'agence');
+                    return;
+                  }
+                  await DatabaseService.addAgency(newAgencyName.trim(), newAgencyCity.trim());
+                  showToast('Agence ajoutée avec succès');
+                  setNewAgencyName('');
+                  setNewAgencyCity('');
+                  loadAgenciesData();
+                }}
+              >
+                <Text style={styles.saveBtnText}>+ Ajouter l'Agence</Text>
+              </TouchableOpacity>
+
+              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: 10 }}>
+                Vos Agences Actuelles ({agenciesList.length}) :
+              </Text>
+
+              {agenciesList.map((a) => (
+                <View key={a.id} style={{ backgroundColor: colors.background, borderRadius: 12, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>🏫 {a.name}</Text>
+                    <Text style={{ fontSize: 12, color: colors.textSecondary }}>Ville: {a.city || '—'} • Code Sync: {a.sync_code}</Text>
+                  </View>
+                  {a.is_main !== 1 && (
+                    <TouchableOpacity
+                      onPress={async () => {
+                        await DatabaseService.deleteAgency(a.id);
+                        showToast('Agence supprimée');
+                        loadAgenciesData();
+                      }}
+                    >
+                      <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+            </ScrollView>
           </View>
         </View>
       </Modal>

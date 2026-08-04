@@ -8,6 +8,8 @@ import { showToast } from '../services/ToastService';
 import { useTheme } from '../theme/ThemeContext';
 import { ThemeColors } from '../theme/colors';
 
+import { AuthContext } from '../../App';
+
 interface AlertItem {
   id: string;
   type: 'TECH_VISIT' | 'OIL_CHANGE' | 'INSURANCE' | 'VIGNETTE';
@@ -22,6 +24,7 @@ type DashboardProps = {
 export const DashboardScreen = ({ navigation }: DashboardProps) => {
   const { t, lang, setLang, isRTL } = useLanguage();
   const { colors, isDark, toggleTheme } = useTheme();
+  const { lockApp } = React.useContext(AuthContext);
 
   const [period, setPeriod] = useState<'TODAY' | 'WEEK' | 'MONTH' | 'YEAR'>('MONTH');
   const [kpi, setKpi] = useState({ income: 0, expense: 0, net: 0 });
@@ -155,6 +158,10 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
           <Text style={[styles.headerSubtitle, isRTL && styles.rtlText]}>By Oukadr</Text>
         </View>
         <View style={styles.headerRight}>
+          <TouchableOpacity style={styles.themeToggle} onPress={lockApp}>
+            <Text style={styles.themeToggleText}>🔒</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.themeToggle} onPress={toggleTheme}>
             <Text style={styles.themeToggleText}>{isDark ? '☀️' : '🌙'}</Text>
           </TouchableOpacity>
@@ -343,20 +350,36 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
             {recentActivities.length === 0 ? (
               <Text style={[styles.emptyActivityText, isRTL && styles.rtlText]}>{t('no_activity') || 'Aucune transaction aujourd\'hui'}</Text>
             ) : (
-              recentActivities.map((act) => (
-                <View key={act.id} style={[styles.activityItem, isRTL && styles.rtlRow]}>
-                  <View style={[styles.activityIconWrapper, act.type === 'INCOME' ? styles.bgGreenLight : styles.bgRedLight]}>
-                    <Text style={styles.activityIcon}>{act.type === 'INCOME' ? '↑' : '↓'}</Text>
+              recentActivities.map((act) => {
+                let mainTitle = act.category_name || t('transactions');
+                let subTitle = act.description || '—';
+
+                if (act.student_name) {
+                  mainTitle = `🎓 ${act.student_name} (${act.license_type || 'B'})`;
+                  subTitle = `${act.category_name || 'Forfait'}${act.description ? ' • ' + act.description : ''}`;
+                } else if (act.vehicle_name) {
+                  mainTitle = `🚘 ${act.vehicle_name} [${act.vehicle_reg || ''}]`;
+                  subTitle = `${act.category_name || 'Dépense'}${act.description ? ' • ' + act.description : ''}`;
+                } else if (act.staff_name) {
+                  mainTitle = `👤 ${act.staff_name} (${act.staff_role || ''})`;
+                  subTitle = `${act.category_name || 'Salaire'}${act.description ? ' • ' + act.description : ''}`;
+                }
+
+                return (
+                  <View key={act.id} style={[styles.activityItem, isRTL && styles.rtlRow]}>
+                    <View style={[styles.activityIconWrapper, act.type === 'INCOME' ? styles.bgGreenLight : styles.bgRedLight]}>
+                      <Text style={styles.activityIcon}>{act.type === 'INCOME' ? '↑' : '↓'}</Text>
+                    </View>
+                    <View style={[styles.activityDetails, isRTL && styles.rtlDetails]}>
+                      <Text style={[styles.activityTitle, isRTL && styles.rtlText]} numberOfLines={1}>{mainTitle}</Text>
+                      <Text style={[styles.activitySubtitle, isRTL && styles.rtlText]} numberOfLines={1}>{subTitle}</Text>
+                    </View>
+                    <Text style={[styles.activityAmount, act.type === 'INCOME' ? styles.textSuccess : styles.textDanger]}>
+                      {act.type === 'INCOME' ? '+' : '-'}{act.amount} DH
+                    </Text>
                   </View>
-                  <View style={[styles.activityDetails, isRTL && styles.rtlDetails]}>
-                    <Text style={[styles.activityTitle, isRTL && styles.rtlText]}>{act.category_name}</Text>
-                    <Text style={[styles.activitySubtitle, isRTL && styles.rtlText]}>{act.description || '—'}</Text>
-                  </View>
-                  <Text style={[styles.activityAmount, act.type === 'INCOME' ? styles.textSuccess : styles.textDanger]}>
-                    {act.type === 'INCOME' ? '+' : '-'}{act.amount} DH
-                  </Text>
-                </View>
-              ))
+                );
+              })
             )}
           </View>
         </View>
