@@ -39,18 +39,24 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
   const [annualTvaCount, setAnnualTvaCount] = useState(0);
   const [annualTvaTotal, setAnnualTvaTotal] = useState(0);
 
+  // Agency Selector state
+  const [agenciesList, setAgenciesList] = useState<any[]>([]);
+  const [selectedAgencyId, setSelectedAgencyId] = useState<number>(0);
+
   useEffect(() => {
     loadDashboardData();
     const unsubscribe = navigation.addListener('focus', () => {
       loadDashboardData();
     });
     return unsubscribe;
-  }, [navigation, period]);
+  }, [navigation, period, selectedAgencyId]);
 
   const loadDashboardData = async () => {
     try {
       const sName = await SecurityService.getSchoolName();
       setSchoolName(sName);
+      const ags = await DatabaseService.getAgencies();
+      setAgenciesList(ags);
     } catch (e) {}
 
     const { income, expense } = await DatabaseService.getFinancialSummaryByPeriod(period);
@@ -189,6 +195,36 @@ export const DashboardScreen = ({ navigation }: DashboardProps) => {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* ACTIVE AGENCY SELECTOR (MULTI-AGENCES) */}
+      {agenciesList.length > 0 && (
+        <View style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : '#f8fafc', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+          <ScrollView
+            horizontal={true}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+          >
+            <TouchableOpacity
+              style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: selectedAgencyId === 0 ? colors.primary : (isDark ? 'rgba(255,255,255,0.05)' : '#e2e8f0'), borderWidth: 1, borderColor: selectedAgencyId === 0 ? colors.primary : colors.border }}
+              onPress={() => setSelectedAgencyId(0)}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '700', color: selectedAgencyId === 0 ? '#fff' : colors.text }}>👑 Réseau Global (Toutes)</Text>
+            </TouchableOpacity>
+
+            {agenciesList.map((a) => (
+              <TouchableOpacity
+                key={a.id}
+                style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: selectedAgencyId === a.id ? colors.primary : (isDark ? 'rgba(255,255,255,0.05)' : '#e2e8f0'), borderWidth: 1, borderColor: selectedAgencyId === a.id ? colors.primary : colors.border }}
+                onPress={() => setSelectedAgencyId(a.id)}
+              >
+                <Text style={{ fontSize: 12, fontWeight: '700', color: selectedAgencyId === a.id ? '#fff' : colors.text }}>
+                  🏫 {a.name} {a.is_main === 1 ? '(Locale)' : ''}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {/* PERIOD FILTER */}
       <View>
