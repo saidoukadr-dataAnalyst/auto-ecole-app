@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator, RefreshControl, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator, RefreshControl, Alert, Platform, Image } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 import { DatabaseService } from '../services/DatabaseService';
 import { useLanguage } from '../services/i18n';
 import { showToast } from '../services/ToastService';
@@ -70,6 +72,27 @@ export function VehiclesScreen() {
   const openAddModal = () => {
     resetForm();
     setModalVisible(true);
+  };
+
+  const pickImage = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        showToast("Permission d'accès aux photos refusée");
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets[0]?.uri) {
+        setImageUri(result.assets[0].uri);
+      }
+    } catch {
+      showToast("Erreur lors de la sélection de l'image");
+    }
   };
 
   const openEditModal = (vehicle: any) => {
@@ -227,6 +250,13 @@ export function VehiclesScreen() {
 
     return (
       <View style={styles.card}>
+        {item.image_uri ? (
+          <Image
+            source={{ uri: item.image_uri }}
+            style={{ width: '100%', height: 160, borderRadius: 12, marginBottom: 12 }}
+            resizeMode="cover"
+          />
+        ) : null}
         <View style={[styles.cardHeader, isRTL && styles.rowReverse]}>
           <Text style={[styles.cardName, isRTL && styles.textRight]}>
             🚗 {item.name} - {item.registration}
@@ -377,6 +407,30 @@ export function VehiclesScreen() {
                 keyboardType="numeric"
                 placeholderTextColor={colors.textSecondary}
               />
+
+              {/* Photo du Véhicule */}
+              <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>Photo du Véhicule</Text>
+              <View style={{ marginBottom: 16 }}>
+                {imageUri ? (
+                  <View style={{ position: 'relative', borderRadius: 12, overflow: 'hidden' }}>
+                    <Image source={{ uri: imageUri }} style={{ width: '100%', height: 140, borderRadius: 12 }} resizeMode="cover" />
+                    <TouchableOpacity
+                      style={{ position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.6)', padding: 6, borderRadius: 16 }}
+                      onPress={() => setImageUri(null)}
+                    >
+                      <Ionicons name="close" size={18} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={{ width: '100%', height: 90, backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#f1f5f9', borderRadius: 12, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }}
+                    onPress={pickImage}
+                  >
+                    <Ionicons name="camera-outline" size={26} color={colors.primary} />
+                    <Text style={{ fontSize: 13, color: colors.textSecondary, marginTop: 4, fontWeight: '500' }}>📸 Ajouter une photo du véhicule</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
 
               {/* Visite Technique - Date Picker */}
               <Text style={[styles.fieldLabel, isRTL && styles.textRight]}>{t('technical_visit')}</Text>
