@@ -351,7 +351,7 @@ export function SettingsScreen() {
           key: 'network_compare',
           icon: '📊',
           label: 'Espace Comparatif Réseau',
-          description: 'Comparer le CA, bénéfice net et taux de succès des 5-6 agences',
+          description: 'Comparer le CA, bénéfice net et taux de succès de toutes vos agences',
           color: '#8b5cf6',
         },
         {
@@ -761,7 +761,7 @@ export function SettingsScreen() {
             ) : (
               <ScrollView showsVerticalScrollIndicator={false}>
                 <Text style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 16 }}>
-                  Comparaison en temps réel des performances des 5 à 6 auto-écoles de votre réseau.
+                  Comparaison en temps réel des performances de l'ensemble de vos auto-écoles.
                 </Text>
 
                 {/* PODIUM CARDS */}
@@ -844,7 +844,7 @@ export function SettingsScreen() {
 
             <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 12 }}>
-                Ajoutez vos 5-6 auto-écoles pour configurer l'espace réseau.
+                Ajoutez vos auto-écoles pour configurer l'espace réseau.
               </Text>
 
               <Text style={styles.fieldLabel}>Nom de la nouvelle agence</Text>
@@ -872,11 +872,15 @@ export function SettingsScreen() {
                     showToast('Veuillez saisir un nom d\'agence');
                     return;
                   }
-                  await DatabaseService.addAgency(newAgencyName.trim(), newAgencyCity.trim());
-                  showToast('Agence ajoutée avec succès');
-                  setNewAgencyName('');
-                  setNewAgencyCity('');
-                  loadAgenciesData();
+                  try {
+                    await DatabaseService.addAgency(newAgencyName.trim(), newAgencyCity.trim());
+                    showToast('Agence ajoutée avec succès !');
+                    setNewAgencyName('');
+                    setNewAgencyCity('');
+                    await loadAgenciesData();
+                  } catch (e) {
+                    showToast('Erreur lors de l\'ajout de l\'agence');
+                  }
                 }}
               >
                 <Text style={styles.saveBtnText}>+ Ajouter l'Agence</Text>

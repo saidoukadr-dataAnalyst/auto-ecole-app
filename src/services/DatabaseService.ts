@@ -834,10 +834,12 @@ export class DatabaseService {
 
   static async addAgency(name: string, city: string, isMain: number = 0): Promise<void> {
     if (!this.db) await this.initDB();
-    const syncCode = `SYNC_${name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)}_${Math.floor(1000 + Math.random() * 9000)}`;
+    const cleanName = (name || 'AGENCE').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const prefix = cleanName.slice(0, 6) || 'AGENCE';
+    const syncCode = `SYNC_${prefix}_${Math.floor(1000 + Math.random() * 9000)}`;
     await this.db!.runAsync(
       'INSERT INTO Agencies (name, city, sync_code, is_main) VALUES (?, ?, ?, ?)',
-      name, city || null, syncCode, isMain
+      name.trim(), city ? city.trim() : null, syncCode, isMain || 0
     );
   }
 
